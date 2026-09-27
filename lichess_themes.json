@@ -1,0 +1,598 @@
+{
+  "categories": [
+    {
+      "id": "puzzle:recommended",
+      "name": "Recommended",
+      "themes": [
+        {
+          "id": "healthyMix",
+          "name": "Healthy mix",
+          "count": "6,404,540",
+          "description": "A bit of everything. You don&#39;t know what to expect, so be ready for anything! Just like in real games."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:phases",
+      "name": "Phases",
+      "themes": [
+        {
+          "id": "opening",
+          "name": "Opening",
+          "count": "321,447",
+          "description": "A tactic during the first phase of the game."
+        },
+        {
+          "id": "middlegame",
+          "name": "Middlegame",
+          "count": "2,917,156",
+          "description": "A tactic during the second phase of the game."
+        },
+        {
+          "id": "endgame",
+          "name": "Endgame",
+          "count": "3,165,937",
+          "description": "A tactic during the last phase of the game."
+        },
+        {
+          "id": "rookEndgame",
+          "name": "Rook endgame",
+          "count": "335,941",
+          "description": "An endgame with only rooks and pawns."
+        },
+        {
+          "id": "bishopEndgame",
+          "name": "Bishop endgame",
+          "count": "85,205",
+          "description": "An endgame with only bishops and pawns."
+        },
+        {
+          "id": "pawnEndgame",
+          "name": "Pawn endgame",
+          "count": "228,005",
+          "description": "An endgame with only pawns."
+        },
+        {
+          "id": "knightEndgame",
+          "name": "Knight endgame",
+          "count": "51,706",
+          "description": "An endgame with only knights and pawns."
+        },
+        {
+          "id": "queenEndgame",
+          "name": "Queen endgame",
+          "count": "72,918",
+          "description": "An endgame with only queens and pawns."
+        },
+        {
+          "id": "queenRookEndgame",
+          "name": "Queen and Rook",
+          "count": "47,181",
+          "description": "An endgame with only queens, rooks and pawns."
+        }
+      ]
+    },
+    {
+      "id": "openings",
+      "name": "By openings",
+      "themes": [
+        {
+          "id": "Sicilian_Defense",
+          "name": "Sicilian Defense",
+          "count": "204,576",
+          "description": ""
+        },
+        {
+          "id": "French_Defense",
+          "name": "French Defense",
+          "count": "87,197",
+          "description": ""
+        },
+        {
+          "id": "Queens_Pawn_Game",
+          "name": "Queen's Pawn Game",
+          "count": "79,304",
+          "description": ""
+        },
+        {
+          "id": "Italian_Game",
+          "name": "Italian Game",
+          "count": "75,241",
+          "description": ""
+        },
+        {
+          "id": "Caro-Kann_Defense",
+          "name": "Caro-Kann Defense",
+          "count": "73,396",
+          "description": ""
+        },
+        {
+          "id": "Scandinavian_Defense",
+          "name": "Scandinavian Defense",
+          "count": "57,612",
+          "description": ""
+        },
+        {
+          "id": "Queens_Gambit_Declined",
+          "name": "Queen's Gambit Declined",
+          "count": "49,611",
+          "description": ""
+        },
+        {
+          "id": "English_Opening",
+          "name": "English Opening",
+          "count": "41,821",
+          "description": ""
+        },
+        {
+          "id": "Ruy_Lopez",
+          "name": "Ruy Lopez",
+          "count": "40,335",
+          "description": ""
+        },
+        {
+          "id": "Scotch_Game",
+          "name": "Scotch Game",
+          "count": "37,428",
+          "description": ""
+        },
+        {
+          "id": "Indian_Defense",
+          "name": "Indian Defense",
+          "count": "36,214",
+          "description": ""
+        },
+        {
+          "id": "Philidor_Defense",
+          "name": "Philidor Defense",
+          "count": "25,228",
+          "description": ""
+        }
+      ]
+    },
+    {
+      "id": "puzzle:motifs",
+      "name": "Motifs",
+      "themes": [
+        {
+          "id": "advancedPawn",
+          "name": "Advanced pawn",
+          "count": "388,356",
+          "description": "One of your pawns is deep into the opponent position, maybe threatening to promote."
+        },
+        {
+          "id": "attackingF2F7",
+          "name": "Attacking f2 or f7",
+          "count": "46,391",
+          "description": "An attack focusing on the f2 or f7 pawn, such as in the fried liver opening."
+        },
+        {
+          "id": "capturingDefender",
+          "name": "Capture the defender",
+          "count": "43,176",
+          "description": "Removing a piece that is critical to defence of another piece, allowing the now undefended piece to be captured on a following move."
+        },
+        {
+          "id": "discoveredAttack",
+          "name": "Discovered attack",
+          "count": "329,113",
+          "description": "Moving a piece (such as a knight), that previously blocked an attack by a long range piece (such as a rook), out of the way of that piece."
+        },
+        {
+          "id": "doubleCheck",
+          "name": "Double check",
+          "count": "33,284",
+          "description": "Checking with two pieces at once, as a result of a discovered attack where both the moving piece and the unveiled piece attack the opponent&#39;s king."
+        },
+        {
+          "id": "exposedKing",
+          "name": "Exposed king",
+          "count": "189,387",
+          "description": "A tactic involving a king with few defenders around it, often leading to checkmate."
+        },
+        {
+          "id": "fork",
+          "name": "Fork",
+          "count": "835,998",
+          "description": "A move where a piece attacks two or more opposing pieces simultaneously."
+        },
+        {
+          "id": "hangingPiece",
+          "name": "Hanging piece",
+          "count": "252,603",
+          "description": "A tactic involving an opponent piece being undefended or insufficiently defended and free to capture."
+        },
+        {
+          "id": "kingsideAttack",
+          "name": "Kingside attack",
+          "count": "549,228",
+          "description": "An attack of the opponent&#39;s king, after they castled on the king side."
+        },
+        {
+          "id": "pin",
+          "name": "Pin",
+          "count": "385,904",
+          "description": "A tactic involving pins, where a piece is unable to move without revealing an attack on a higher value piece."
+        },
+        {
+          "id": "queensideAttack",
+          "name": "Queenside attack",
+          "count": "94,952",
+          "description": "An attack of the opponent&#39;s king, after they castled on the queen side."
+        },
+        {
+          "id": "sacrifice",
+          "name": "Sacrifice",
+          "count": "469,980",
+          "description": "A tactic involving giving up material in the short-term, to gain an advantage again after a forced sequence of moves."
+        },
+        {
+          "id": "skewer",
+          "name": "Skewer",
+          "count": "142,862",
+          "description": "A motif involving a high value piece being attacked, moving out the way, and allowing a lower value piece behind it to be captured or attacked, the inverse of a pin."
+        },
+        {
+          "id": "trappedPiece",
+          "name": "Trapped piece",
+          "count": "73,694",
+          "description": "A piece is unable to escape capture as it has limited moves."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:advanced",
+      "name": "Advanced",
+      "themes": [
+        {
+          "id": "attraction",
+          "name": "Attraction",
+          "count": "227,253",
+          "description": "An exchange or sacrifice encouraging or forcing an opponent piece to a square that allows a follow-up tactic."
+        },
+        {
+          "id": "clearance",
+          "name": "Clearance",
+          "count": "82,468",
+          "description": "A move, often with tempo, that clears a square, file or diagonal for a follow-up tactical idea."
+        },
+        {
+          "id": "collinearMove",
+          "name": "Collinear move",
+          "count": "7,734",
+          "description": "Two opposing pieces face each other, and one slides along the line of attack without capturing the enemy piece."
+        },
+        {
+          "id": "discoveredCheck",
+          "name": "Discovered check",
+          "count": "108,803",
+          "description": "Move a piece to reveal a check from a hidden attacking piece, which often leads to a decisive advantage."
+        },
+        {
+          "id": "defensiveMove",
+          "name": "Defensive move",
+          "count": "380,773",
+          "description": "A precise move or sequence of moves that is needed to avoid losing material or another advantage."
+        },
+        {
+          "id": "deflection",
+          "name": "Deflection",
+          "count": "274,988",
+          "description": "A move that distracts an opposing piece from another duty that it performs, such as guarding a key square. Sometimes also called &quot;overloading&quot;."
+        },
+        {
+          "id": "interference",
+          "name": "Interference",
+          "count": "23,459",
+          "description": "Moving a piece between two opponent pieces to leave one or both opponent pieces undefended, such as a knight on a defended square between two rooks."
+        },
+        {
+          "id": "intermezzo",
+          "name": "Intermezzo",
+          "count": "78,906",
+          "description": "Instead of playing the expected move, first interpose another move posing an immediate threat that the opponent must answer. Also known as &quot;Zwischenzug&quot; or &quot;In between&quot;."
+        },
+        {
+          "id": "quietMove",
+          "name": "Quiet move",
+          "count": "261,064",
+          "description": "A move that does not check, capture, or create an immediate threat to capture. Instead, it prepares a hidden and unavoidable threat for a later move."
+        },
+        {
+          "id": "xRayAttack",
+          "name": "X-Ray attack",
+          "count": "22,430",
+          "description": "A piece attacks or defends a square, through an enemy piece."
+        },
+        {
+          "id": "zugzwang",
+          "name": "Zugzwang",
+          "count": "64,599",
+          "description": "The opponent is limited in the moves they can make, and all moves worsen their position."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:mates",
+      "name": "Mates",
+      "themes": [
+        {
+          "id": "mate",
+          "name": "Checkmate",
+          "count": "1,974,121",
+          "description": "Win the game with style."
+        },
+        {
+          "id": "mateIn1",
+          "name": "Mate in 1",
+          "count": "912,293",
+          "description": "Deliver checkmate in one move."
+        },
+        {
+          "id": "mateIn2",
+          "name": "Mate in 2",
+          "count": "825,000",
+          "description": "Deliver checkmate in two moves."
+        },
+        {
+          "id": "mateIn3",
+          "name": "Mate in 3",
+          "count": "200,956",
+          "description": "Deliver checkmate in three moves."
+        },
+        {
+          "id": "mateIn4",
+          "name": "Mate in 4",
+          "count": "29,487",
+          "description": "Deliver checkmate in four moves."
+        },
+        {
+          "id": "mateIn5",
+          "name": "Mate in 5 or more",
+          "count": "6,387",
+          "description": "Figure out a long mating sequence."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:mateThemes",
+      "name": "Mate themes",
+      "themes": [
+        {
+          "id": "anastasiaMate",
+          "name": "Anastasia&#39;s mate",
+          "count": "7,573",
+          "description": "A knight and rook or queen team up to trap the opposing king between the side of the board and a friendly piece."
+        },
+        {
+          "id": "arabianMate",
+          "name": "Arabian mate",
+          "count": "7,586",
+          "description": "A knight and a rook team up to trap the opposing king on a corner of the board."
+        },
+        {
+          "id": "backRankMate",
+          "name": "Back rank mate",
+          "count": "209,848",
+          "description": "Checkmate the king on the home rank, when it is trapped there by its own pieces."
+        },
+        {
+          "id": "balestraMate",
+          "name": "Balestra mate",
+          "count": "1,368",
+          "description": "A bishop delivers the checkmate, while a queen blocks the remaining escape squares"
+        },
+        {
+          "id": "blindSwineMate",
+          "name": "Blind Swine mate",
+          "count": "6,361",
+          "description": "Two rooks team up to mate the king in an area of 2 by 2 squares."
+        },
+        {
+          "id": "bodenMate",
+          "name": "Boden&#39;s mate",
+          "count": "3,778",
+          "description": "Two attacking bishops on criss-crossing diagonals deliver mate to a king obstructed by friendly pieces."
+        },
+        {
+          "id": "cornerMate",
+          "name": "Corner mate",
+          "count": "10,782",
+          "description": "Confine the king to the corner using a rook or queen, and use a knight to deliver the checkmate."
+        },
+        {
+          "id": "doubleBishopMate",
+          "name": "Double bishop mate",
+          "count": "3,743",
+          "description": "Two attacking bishops on adjacent diagonals deliver mate to a king obstructed by friendly pieces."
+        },
+        {
+          "id": "dovetailMate",
+          "name": "Dovetail mate",
+          "count": "4,112",
+          "description": "A queen delivers mate to an adjacent king, whose only two escape squares are obstructed by friendly pieces."
+        },
+        {
+          "id": "epauletteMate",
+          "name": "Epaulette mate",
+          "count": "22,646",
+          "description": "Two adjacent escape squares for a checked king are occupied by other pieces."
+        },
+        {
+          "id": "hookMate",
+          "name": "Hook mate",
+          "count": "10,859",
+          "description": "Checkmate using a rook, knight, and pawn, where an opposing pawn blocks the king&#39;s escape."
+        },
+        {
+          "id": "killBoxMate",
+          "name": "Kill box mate",
+          "count": "5,519",
+          "description": "A rook is next to the enemy king and supported by a queen that also blocks the king&#39;s escape squares. The rook and the queen catch the enemy king in a 3 by 3 &quot;kill box&quot;."
+        },
+        {
+          "id": "pillsburysMate",
+          "name": "Pillsbury&#39;s mate",
+          "count": "67,644",
+          "description": "A rook delivers checkmate to the king, while a bishop helps confine it."
+        },
+        {
+          "id": "morphysMate",
+          "name": "Morphy&#39;s mate",
+          "count": "7,133",
+          "description": "A bishop delivers checkmate to the king, while a rook helps confine it."
+        },
+        {
+          "id": "operaMate",
+          "name": "Opera mate",
+          "count": "63,940",
+          "description": "Check the king with a rook and use a bishop to defend the rook."
+        },
+        {
+          "id": "swallowstailMate",
+          "name": "Swallow&#39;s tail mate",
+          "count": "8,398",
+          "description": "A checkmate pattern that visually resembles the appearance of a swallow’s tail, similar to a V shape."
+        },
+        {
+          "id": "triangleMate",
+          "name": "Triangle mate",
+          "count": "7,854",
+          "description": "The queen and rook, one square away from the enemy king, are on the same rank or file, separated by one square, forming a triangle."
+        },
+        {
+          "id": "vukovicMate",
+          "name": "Vuković mate",
+          "count": "2,487",
+          "description": "A rook and knight team up to mate the king. The rook delivers mate while supported by a third piece, and the knight is used to block the king&#39;s escape squares."
+        },
+        {
+          "id": "smotheredMate",
+          "name": "Smothered mate",
+          "count": "24,608",
+          "description": "A checkmate delivered by a knight in which the mated king is unable to move because it is surrounded (or smothered) by its own pieces."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:specialMoves",
+      "name": "Special moves",
+      "themes": [
+        {
+          "id": "castling",
+          "name": "Castling",
+          "count": "2,652",
+          "description": "Bring the king to safety, and deploy the rook for attack."
+        },
+        {
+          "id": "enPassant",
+          "name": "En passant rights",
+          "count": "8,902",
+          "description": "A tactic involving the en passant rule, where a pawn can capture an opposing pawn that has just moved next to it with its initial two-square move."
+        },
+        {
+          "id": "promotion",
+          "name": "Promotion",
+          "count": "151,179",
+          "description": "Promote one of your pawns to a queen, rook or minor piece."
+        },
+        {
+          "id": "underPromotion",
+          "name": "Underpromotion",
+          "count": "1,173",
+          "description": "Promotion to a knight, bishop, or rook."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:goals",
+      "name": "Goals",
+      "themes": [
+        {
+          "id": "equality",
+          "name": "Equality",
+          "count": "43,030",
+          "description": "Come back from a losing position, and secure a draw or a balanced position. (eval ≤ 200cp)"
+        },
+        {
+          "id": "advantage",
+          "name": "Advantage",
+          "count": "1,893,257",
+          "description": "Seize your chance to get a decisive advantage. (200cp ≤ eval ≤ 600cp)"
+        },
+        {
+          "id": "crushing",
+          "name": "Crushing",
+          "count": "2,440,273",
+          "description": "Spot the opponent blunder to obtain a crushing advantage. (eval ≥ 600cp)"
+        },
+        {
+          "id": "mate",
+          "name": "Checkmate",
+          "count": "1,974,121",
+          "description": "Win the game with style."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:lengths",
+      "name": "Lengths",
+      "themes": [
+        {
+          "id": "oneMove",
+          "name": "One-move puzzle",
+          "count": "959,551",
+          "description": "A puzzle that is only one move long."
+        },
+        {
+          "id": "short",
+          "name": "Short puzzle",
+          "count": "3,250,100",
+          "description": "Two moves to win."
+        },
+        {
+          "id": "long",
+          "name": "Long puzzle",
+          "count": "1,628,775",
+          "description": "Three moves to win."
+        },
+        {
+          "id": "veryLong",
+          "name": "Very long puzzle",
+          "count": "512,255",
+          "description": "Four moves or more to win."
+        }
+      ]
+    },
+    {
+      "id": "puzzle:origin",
+      "name": "Origin",
+      "themes": [
+        {
+          "id": "master",
+          "name": "Master games",
+          "count": "839,955",
+          "description": "Puzzles from games played by titled players."
+        },
+        {
+          "id": "masterVsMaster",
+          "name": "Master vs Master games",
+          "count": "77,314",
+          "description": "Puzzles from games between two titled players."
+        },
+        {
+          "id": "superGM",
+          "name": "Super GM games",
+          "count": "3,283",
+          "description": "Puzzles from games played by the best players in the world."
+        },
+        {
+          "id": "of-player",
+          "name": "Player games",
+          "count": "",
+          "description": "View puzzles generated from your games, or from another player&#39;s games"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+.eggs/
+*.egg-info/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data files
+lichess_db_puzzle.csv
+puzzles.db
+*.db
+.piece_cache/
+f0qUr.png
+
+# OS
+.DS_Store
+Thumbs.db

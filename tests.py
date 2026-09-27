@@ -1,0 +1,505 @@
+#!/usr/bin/env python3
+"""Tests for Lichess Puzzle Viewer filters, translations, and theme parsing."""
+
+import json
+import os
+import tempfile
+import threading
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import tkinter as tk
+from tkinter import ttk
+from PIL import Image
+
+from constants import (
+    UI_TRANSLATIONS,
+    LANG,
+    t,
+    THEME_TRANSLATIONS,
+    THEME_RU_TO_EN,
+    CATEGORY_TRANSLATIONS,
+    CATEGORY_RU_TO_EN,
+    COLOR_RU_TO_EN,
+)
+from parse_themes import parse_themes, clean
+from database import PuzzleDatabase, Puzzle
+from ui import PuzzleApp
+
+
+THEME_HTML_SNIPPET = """
+<h2 id="puzzle:phases">Phases</h2>
+<div class="puzzle-themes__list puzzle-phases">
+  <a class="puzzle-themes__link" href="/training/opening">
+    <span>
+      <h3>Opening<em class="puzzle-themes__count">321,447</em></h3>
+      <span>A tactic during the first phase of the game.</span>
+    </span>
+  </a>
+  <a class="puzzle-themes__link" href="/training/middlegame">
+    <span>
+      <h3>Middlegame<em class="puzzle-themes__count">2,917,156</em></h3>
+      <span>A tactic during the second phase of the game.</span>
+    </span>
+  </a>
+</div>
+"""
+
+
+class TestThemeParser(unittest.TestCase):
+    def test_parse_themes_returns_categories(self):
+        data = parse_themes(THEME_HTML_SNIPPET)
+        self.assertIn("categories", data)
+        self.assertEqual(len(data["categories"]), 1)
+
+    def test_parse_themes_extracts_theme_fields(self):
+        data = parse_themes(THEME_HTML_SNIPPET)
+        themes = data["categories"][0]["themes"]
+        self.assertEqual(len(themes), 2)
+        self.assertEqual(themes[0]["id"], "opening")
+        self.assertEqual(themes[0]["name"], "Opening")
+        self.assertEqual(themes[0]["count"], "321,447")
+        self.assertEqual(themes[0]["description"], "A tactic during the first phase of the game.")
+
+    def test_clean_strips_tags(self):
+        self.assertEqual(clean("<b>Bold</b>"), "Bold")
+        self.assertEqual(clean("  spaced  "), "spaced")
+
+
+class TestThemeTranslations(unittest.TestCase):
+    def test_theme_translation_keys_non_empty(self):
+        self.assertGreaterEqual(len(THEME_TRANSLATIONS), 1)
+
+    def test_theme_roundtrip_ru_en(self):
+        for en, ru in THEME_TRANSLATIONS.items():
+            self.assertEqual(THEME_RU_TO_EN[ru], en)
+
+    def test_category_translation_keys_non_empty(self):
+        self.assertGreaterEqual(len(CATEGORY_TRANSLATIONS), 1)
+
+    def test_category_roundtrip_ru_en(self):
+        for en, ru in CATEGORY_TRANSLATIONS.items():
+            self.assertEqual(CATEGORY_RU_TO_EN[ru], en)
+
+    def test_color_roundtrip(self):
+        self.assertEqual(COLOR_RU_TO_EN["Ход белых"], "w")
+        self.assertEqual(COLOR_RU_TO_EN["Ход черных"], "b")
+
+
+class TestUITranslations(unittest.TestCase):
+    def test_ru_language_default(self):
+        self.assertEqual(LANG, "ru")
+
+    def test_required_keys_exist_in_ru(self):
+        required = [
+            "app_title",
+            "menu_file",
+            "menu_help",
+            "filters_title",
+            "moves_label",
+            "color_label",
+            "category_label",
+            "themes_label",
+            "apply_btn",
+            "reset_btn",
+            "found_label",
+            "prev_btn",
+            "save_png_btn",
+            "next_btn",
+            "status_ready",
+            "status_filtering",
+            "status_loaded",
+            "status_not_found",
+            "status_reset",
+            "status_import_started",
+            "status_import_complete",
+            "status_db_ready",
+            "status_db_not_ready",
+            "puzzle_info",
+            "no_data",
+            "toggle_filter_on",
+            "toggle_filter_off",
+            "scale_equals",
+            "progress_pct",
+        ]
+        ru = UI_TRANSLATIONS["ru"]
+        for key in required:
+            self.assertIn(key, ru)
+            self.assertTrue(ru[key])
+
+    def test_required_keys_exist_in_en(self):
+        required = [
+            "app_title",
+            "menu_file",
+            "menu_help",
+            "filters_title",
+            "moves_label",
+            "color_label",
+            "category_label",
+            "themes_label",
+            "apply_btn",
+            "reset_btn",
+            "found_label",
+            "prev_btn",
+            "save_png_btn",
+            "next_btn",
+            "status_ready",
+            "status_filtering",
+            "status_loaded",
+            "status_not_found",
+            "status_reset",
+            "status_import_started",
+            "status_import_complete",
+            "status_db_ready",
+            "status_db_not_ready",
+            "puzzle_info",
+            "no_data",
+            "toggle_filter_on",
+            "toggle_filter_off",
+            "scale_equals",
+            "progress_pct",
+        ]
+        en = UI_TRANSLATIONS["en"]
+        for key in required:
+            self.assertIn(key, en)
+            self.assertTrue(en[key])
+
+    def test_format_keys_present(self):
+        for lang in ("ru", "en"):
+            self.assertIn("{count}", UI_TRANSLATIONS[lang]["found_label"])
+            self.assertIn("{index}", UI_TRANSLATIONS[lang]["puzzle_info"])
+            self.assertIn("{total}", UI_TRANSLATIONS[lang]["puzzle_info"])
+            self.assertIn("{pct}", UI_TRANSLATIONS[lang]["progress_pct"])
+
+
+class TestFilterCombinations(unittest.TestCase):
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.app = PuzzleApp(self.root)
+
+    def tearDown(self):
+        try:
+            self.app.destroy()
+        except Exception:
+            self.root.destroy()
+
+    def test_get_filter_values_color_white(self):
+        self.app.filter_widgets["color"].set("Ход белых")
+        values = self.app._get_filter_values()
+        self.assertEqual(values["color"], "b")
+
+    def test_get_filter_values_color_black(self):
+        self.app.filter_widgets["color"].set("Ход черных")
+        values = self.app._get_filter_values()
+        self.assertEqual(values["color"], "w")
+
+    def test_get_filter_values_color_empty(self):
+        self.app.filter_widgets["color"].set("")
+        values = self.app._get_filter_values()
+        self.assertIsNone(values["color"])
+
+    def test_get_filter_values_moves_disabled(self):
+        values = self.app._get_filter_values()
+        self.assertIsNone(values["moves_exact"])
+
+    def test_category_filter_updates_listbox(self):
+        self.app._category_var.set("Фазы")
+        self.app._on_category_selected()
+        self.assertEqual(self.app.themes_listbox.size(), 9)
+        all_items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
+        self.assertIn("Дебют (321,447)", all_items)
+
+    def test_category_filter_hides_missing_themes(self):
+        self.app._available_theme_ids = {"opening", "middlegame", "endgame"}
+        self.app._category_var.set("Фазы")
+        self.app._on_category_selected()
+        self.assertEqual(self.app.themes_listbox.size(), 3)
+
+    def test_empty_categories_removed_after_db_ready(self):
+        self.app._available_theme_ids = {"opening", "middlegame", "endgame"}
+        self.app._on_db_ready()
+        self.assertNotIn("Рекомендуемые", self.app.category_cb["values"])
+        self.assertIn("Фазы", self.app.category_cb["values"])
+
+    def test_apply_filter_does_not_raise(self):
+        from unittest.mock import patch
+
+        with patch.object(self.app.root, "after", lambda ms, func, *args: func()), \
+             patch.object(threading, "Thread", lambda **kwargs: type("FakeThread", (), {"start": lambda self: None})()):
+            self.app._apply_filter()
+
+    def test_apply_filter_does_not_raise(self):
+        from unittest.mock import patch
+
+        with patch.object(self.app.root, "after", lambda ms, func, *args: func()), \
+             patch.object(threading, "Thread", lambda **kwargs: type("FakeThread", (), {"start": lambda self: None})()):
+            self.app._apply_filter()
+
+    def test_pagination_loads_more_when_at_end(self):
+        PuzzleMock = type('Puzzle', (), {
+            'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            'moves': 'e2e4 e7e5',
+            'color': 'w',
+            'puzzle_id': 'test',
+            'rating': 1500,
+            'popularity': 80,
+            'nb_plays': 100,
+            'themes': ['opening'],
+            'opening_tags': ['Italian Game'],
+            'game_url': 'http://example.com',
+            'solution': 'e7e5',
+        })
+        self.app.filtered_puzzles = [PuzzleMock()]
+        self.app.current_index = 0
+        self.app._filter_total = 150
+        self.app._filter_offset = 1
+        self.app._filter_values = {"color": "b"}
+
+        def fake_filter(**kwargs):
+            return [PuzzleMock()] * 99
+
+        self.app.db.filter_puzzles = fake_filter
+
+        original_after = self.app.root.after
+        def immediate_after(ms, func, *args):
+            return func()
+
+        class FakeThread:
+            def __init__(self, target=None, daemon=None):
+                self._target = target
+            def start(self):
+                if self._target:
+                    self._target()
+
+        with patch.object(self.app, "_show_puzzle", lambda index: None), \
+             patch.object(self.app.root, "after", immediate_after), \
+             patch.object(threading, "Thread", FakeThread):
+            self.app._next_puzzle()
+
+        self.assertEqual(len(self.app.filtered_puzzles), 100)
+        self.assertEqual(self.app._filter_offset, 100)
+
+    def test_stats_displayed_after_filter(self):
+        PuzzleMock = type('Puzzle', (), {
+            'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            'moves': 'e2e4 e7e5',
+            'color': 'w',
+            'puzzle_id': 'test',
+            'rating': 1500,
+            'popularity': 80,
+            'nb_plays': 100,
+            'themes': ['opening'],
+            'opening_tags': ['Italian Game'],
+            'game_url': 'http://example.com',
+            'solution': 'e7e5',
+        })
+        self.app._filter_values = {"color": "w"}
+        self.app._filter_total = 10
+        self.app._filter_offset = 2
+        self.app.filtered_puzzles = [PuzzleMock(), PuzzleMock()]
+
+        with patch.object(self.app, "_show_puzzle", lambda index: None), \
+             patch.object(self.app.db, "get_stats", return_value={"white": 5, "black": 3, "by_moves": {1: 5, 2: 3}}):
+            self.app._update_stats()
+
+        text = self.app.stats_label.cget("text")
+        self.assertIn("Ход белых: 3", text)
+        self.assertIn("Ход черных: 5", text)
+
+    def test_solution_navigation(self):
+        PuzzleMock = type('Puzzle', (), {
+            'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            'moves': 'e2e4 e7e5 g1f3',
+            'color': 'w',
+            'puzzle_id': 'test',
+            'rating': 1500,
+            'popularity': 80,
+            'nb_plays': 100,
+            'themes': ['opening'],
+            'opening_tags': ['Italian Game'],
+            'game_url': 'http://example.com',
+            'solution': 'e7e5 g1f3',
+        })
+        self.app.filtered_puzzles = [PuzzleMock()]
+        self.app.current_index = 0
+
+        with patch.object(self.app, "_update_solution_board") as mock_board, \
+             patch.object(self.app, "_update_solution_step_label") as mock_label, \
+             patch.object(self.app, "_update_info_text") as mock_info:
+            self.app._show_puzzle(0)
+
+        self.assertEqual(self.app._solution_step, 1)
+        mock_board.assert_called_once()
+        mock_label.assert_called_once()
+        mock_info.assert_called_once()
+
+        with patch.object(self.app, "_update_solution_board") as mock_board, \
+             patch.object(self.app, "_update_solution_step_label") as mock_label:
+            self.app._next_solution_step()
+
+        self.assertEqual(self.app._solution_step, 2)
+        mock_board.assert_called_once()
+        mock_label.assert_called_once()
+
+        with patch.object(self.app, "_update_solution_board") as mock_board, \
+             patch.object(self.app, "_update_solution_step_label") as mock_label:
+            self.app._prev_solution_step()
+
+        self.assertEqual(self.app._solution_step, 1)
+        mock_board.assert_called_once()
+        mock_label.assert_called_once()
+
+        with patch.object(self.app, "_update_solution_board") as mock_board, \
+             patch.object(self.app, "_update_solution_step_label") as mock_label:
+            self.app._go_to_solution_start()
+
+        self.assertEqual(self.app._solution_step, 1)
+        mock_board.assert_called_once()
+        mock_label.assert_called_once()
+
+        with patch.object(self.app, "_update_solution_board") as mock_board, \
+             patch.object(self.app, "_update_solution_step_label") as mock_label:
+            self.app._go_to_solution_end()
+
+        self.assertEqual(self.app._solution_step, 3)
+        mock_board.assert_called_once()
+        mock_label.assert_called_once()
+
+    def test_clickable_game_url(self):
+        PuzzleMock = type('Puzzle', (), {
+            'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            'moves': 'e2e4 e7e5',
+            'color': 'w',
+            'puzzle_id': 'test',
+            'rating': 1500,
+            'popularity': 80,
+            'nb_plays': 100,
+            'themes': ['opening'],
+            'opening_tags': ['Italian Game'],
+            'game_url': 'http://example.com',
+            'solution': 'e7e5',
+        })
+        self.app.filtered_puzzles = [PuzzleMock()]
+        self.app.current_index = 0
+
+        with patch('webbrowser.open') as mock_open:
+            self.app._update_info_text(PuzzleMock())
+            tags = self.app.info_text.tag_names()
+            self.assertIn('link', tags)
+            self.app._open_url('http://example.com')
+            mock_open.assert_called_once_with('http://example.com')
+
+    def test_add_to_selected(self):
+        PuzzleMock = type('Puzzle', (), {
+            'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            'moves': 'e2e4 e7e5',
+            'color': 'w',
+            'puzzle_id': 'test123',
+            'rating': 1500,
+            'popularity': 80,
+            'nb_plays': 100,
+            'themes': ['opening'],
+            'opening_tags': ['Italian Game'],
+            'game_url': 'http://example.com',
+            'solution': 'e7e5',
+        })
+        self.app.filtered_puzzles = [PuzzleMock()]
+        self.app.current_index = 0
+        self.app.selected_puzzles = []
+
+        with patch('ui.render_puzzle', return_value=Image.new('RGB', (80, 80), '#FFF')):
+            self.app._add_to_selected()
+
+        self.assertEqual(len(self.app.selected_puzzles), 1)
+        self.assertEqual(self.app.selected_puzzles[0].puzzle_id, 'test123')
+        self.assertEqual(len(self.app.selected_inner.winfo_children()), 1)
+
+
+class TestDatabaseFilter(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.db_path = os.path.join(cls.temp_dir, "test.db")
+        cls.csv_path = os.path.join(cls.temp_dir, "test.csv")
+
+    def setUp(self):
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+        self.db = PuzzleDatabase(db_path=self.db_path, csv_path=self.csv_path)
+
+    def tearDown(self):
+        self.db.conn.close()
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+
+    def _write_csv(self, rows):
+        with open(self.csv_path, "w", encoding="utf-8", newline="") as f:
+            f.write("PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags,DailyDate\n")
+            for row in rows:
+                f.write(row + "\n")
+
+    def test_filter_by_color(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        puzzles = self.db.filter_puzzles(color="w", limit=10)
+        self.assertEqual(len(puzzles), 1)
+        self.assertEqual(puzzles[0].puzzle_id, "00001")
+
+    def test_filter_by_theme(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        puzzles = self.db.filter_puzzles(themes=["fork"], limit=10)
+        self.assertEqual(len(puzzles), 1)
+        self.assertEqual(puzzles[0].puzzle_id, "00002")
+
+    def test_filter_by_moves_exact(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        puzzles = self.db.filter_puzzles(moves_exact=1, limit=10)
+        self.assertEqual(len(puzzles), 1)
+        self.assertEqual(puzzles[0].puzzle_id, "00001")
+
+    def test_combined_filters(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        puzzles = self.db.filter_puzzles(color="b", themes=["fork"], moves_exact=2, limit=10)
+        self.assertEqual(len(puzzles), 1)
+        self.assertEqual(puzzles[0].puzzle_id, "00002")
+
+    def test_get_stats_counts_colors(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        stats = self.db.get_stats()
+        self.assertEqual(stats["white"], 1)
+        self.assertEqual(stats["black"], 1)
+
+    def test_get_stats_counts_moves(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+        ])
+        self.db.import_csv()
+        stats = self.db.get_stats()
+        self.assertEqual(stats["by_moves"][1], 1)
+        self.assertEqual(stats["by_moves"][2], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

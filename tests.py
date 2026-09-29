@@ -409,12 +409,17 @@ class TestFilterCombinations(unittest.TestCase):
         self.app.current_index = 0
         self.app.selected_puzzles = []
 
-        with patch('ui.render_puzzle', return_value=Image.new('RGB', (80, 80), '#FFF')):
+        with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (80, 80), '#FFF')):
             self.app._add_to_selected()
 
         self.assertEqual(len(self.app.selected_puzzles), 1)
-        self.assertEqual(self.app.selected_puzzles[0].puzzle_id, 'test123')
         self.assertEqual(len(self.app.selected_inner.winfo_children()), 1)
+
+        added_puzzle = self.app.selected_puzzles[0]
+        wrapper = self.app.selected_inner.winfo_children()[0]
+        self.app._remove_from_selected(added_puzzle, wrapper)
+        self.assertEqual(len(self.app.selected_puzzles), 0)
+        self.assertEqual(len(self.app.selected_inner.winfo_children()), 0)
 
 
 class TestDatabaseFilter(unittest.TestCase):

@@ -65,6 +65,7 @@ def render_puzzle(
     square_size: int = SQUARE_SIZE,
     use_lichess_pieces: bool = True,
     move_index: int = 0,
+    show_coordinates: bool = True,
 ) -> Image.Image:
     """
     Рендерит позицию задачи в изображение PIL.
@@ -76,6 +77,7 @@ def render_puzzle(
         use_lichess_pieces: Использовать SVG-фигуры с lichess CDN.
         move_index: Индекс хода для отображения позиции после него.
                    0 = начальная позиция, 1 = после первого хода, и т.д.
+        show_coordinates: Отображать координаты полей.
 
     Возвращает:
         Изображение PIL.Image.RGB.
@@ -88,7 +90,7 @@ def render_puzzle(
         except ValueError:
             pass
 
-    img = Image.new("RGB", (BOARD_SIZE, BOARD_SIZE), "#FFFFFF")
+    img = Image.new("RGB", (square_size * 8, square_size * 8), "#FFFFFF")
     draw = ImageDraw.Draw(img)
 
     # Клетки доски
@@ -121,29 +123,30 @@ def render_puzzle(
             _draw_unicode_piece(draw, symbol, x, y, square_size)
 
     # Координаты
-    try:
-        coord_font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            int(square_size * 0.25),
-        )
-    except Exception:
-        coord_font = ImageFont.load_default()
+    if show_coordinates:
+        try:
+            coord_font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                int(square_size * 0.25),
+            )
+        except Exception:
+            coord_font = ImageFont.load_default()
 
-    for i in range(8):
-        file_char = chr(ord("a") + i)
-        rank_char = str(8 - i)
-        draw.text(
-            (i * square_size + 4, BOARD_SIZE - 14),
-            file_char,
-            font=coord_font,
-            fill=COLOR_COORDINATES,
-        )
-        draw.text(
-            (4, i * square_size + 4),
-            rank_char,
-            font=coord_font,
-            fill=COLOR_COORDINATES,
-        )
+        for i in range(8):
+            file_char = chr(ord("a") + i)
+            rank_char = str(8 - i)
+            draw.text(
+                (i * square_size + 4, square_size * 8 - 14),
+                file_char,
+                font=coord_font,
+                fill=COLOR_COORDINATES,
+            )
+            draw.text(
+                (4, i * square_size + 4),
+                rank_char,
+                font=coord_font,
+                fill=COLOR_COORDINATES,
+            )
 
     return img
 

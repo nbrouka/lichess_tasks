@@ -1,0 +1,78 @@
+"""
+Mixin for theme/category loading and selection in Lichess Puzzle Viewer.
+"""
+
+import tkinter as tk
+from pathlib import Path
+import json
+
+from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t
+
+
+class PuzzleThemesMixin:
+    def _load_themes_data(self) -> None:
+        path = Path("lichess_themes.json")
+        if not path.exists():
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.themes_data = {}
+            for cat in data.get("categories", []):
+                cat_name = cat.get("name", "")
+                ru_name = CATEGORY_TRANSLATIONS.get(cat_name, cat_name)
+                themes = {}
+                for t in cat.get("themes", []):
+                    themes[t.get("name", "")] = t
+                self.themes_data[ru_name] = themes
+
+            categories = [CATEGORY_TRANSLATIONS.get(cat.get("name", ""), cat.get("name", "")) for cat in data.get("categories", [])]
+            self.category_cb["values"] = categories
+            if categories:
+                self._category_var.set(categories[0])
+                self._on_category_selected()
+        except Exception:
+            pass
+
+    def _on_category_selected(self, event=None) -> None:
+        category = self._category_var.get()
+        cat_themes = self.themes_data.get(category, {})
+
+        self.themes_listbox.delete(0, tk.END)
+        for data in cat_themes.values():
+            theme_id = data.get("id", "")
+            if self._available_theme_ids and theme_id not in self._available_theme_ids:
+                continue
+            ru_name = THEME_TRANSLATIONS.get(theme_id, data.get("name", ""))
+            count = data.get("count", "")
+            display = f"{ru_name} ({count})" if count else ru_name
+            self.themes_listbox.insert(tk.END, display)
+
+    def _on_db_ready(self) -> None:
+        themes = self.db.get_all_themes()
+        self._available_theme_ids = set(themes)
+        self.themes_listbox.delete(0, tk.END)
+        for theme in sorted(themes):
+            display = THEME_TRANSLATIONS.get(theme, theme)
+            self.themes_listbox.insert(tk.END, display)
+        self.status_label.config(text=t("status_db_ready"))
+
+        filtered_categories = []
+        filtered_themes_data = {}
+        for cat_name, cat_themes in self.themes_data.items():
+            available = {
+                name: data
+                for name, data in cat_themes.items()
+                if data.get("id", "") in self._available_theme_ids
+            }
+            if available:
+                filtered_categories.append(cat_name)
+                filtered_themes_data[cat_name] = available
+
+        self.themes_data = filtered_themes_data
+        self.category_cb["values"] = filtered_categories
+        if filtered_categories:
+            self._category_var.set(filtered_categories[0])
+        else:
+            self._category_var.set("")
+        self._on_category_selected()

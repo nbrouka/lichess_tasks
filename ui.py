@@ -17,6 +17,7 @@ from constants import (
     THEME_TRANSLATIONS, THEME_RU_TO_EN,
     CATEGORY_TRANSLATIONS, CATEGORY_RU_TO_EN,
     UI_TRANSLATIONS, LANG, t, COLOR_RU_TO_EN,
+    WINDOW_GEOMETRY, WINDOW_MINSIZE,
 )
 
 from ui_puzzle_view import PuzzleViewMixin
@@ -36,8 +37,8 @@ class PuzzleApp(
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(t("app_title"))
-        self.root.geometry("1050x720")
-        self.root.minsize(900, 600)
+        self.root.geometry(WINDOW_GEOMETRY)
+        self.root.minsize(*WINDOW_MINSIZE)
 
         self.db = PuzzleDatabase(db_path=DB_FILENAME, csv_path=DEFAULT_CSV_PATH)
 

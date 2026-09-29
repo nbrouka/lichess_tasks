@@ -15,7 +15,7 @@ import cairosvg
 
 from constants import (
     SQUARE_SIZE, BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
-    PIECE_UNICODE, COLOR_COORDINATES,
+    PIECE_UNICODE, COLOR_COORDINATES, LICHESS_CDN_TIMEOUT,
 )
 
 _LICHESS_PIECE_BASE = "https://lichess1.org/assets/piece/cburnett"
@@ -45,7 +45,7 @@ class PieceSet:
             img = Image.open(cache_path).convert("RGBA")
         else:
             svg_url = f"{_LICHESS_PIECE_BASE}/{piece_name}.svg"
-            resp = requests.get(svg_url, timeout=15)
+            resp = requests.get(svg_url, timeout=LICHESS_CDN_TIMEOUT)
             resp.raise_for_status()
             png_bytes = cairosvg.svg2png(
                 bytestring=resp.content,

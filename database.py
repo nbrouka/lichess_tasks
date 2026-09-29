@@ -12,7 +12,8 @@ from typing import Optional, List, Dict, Any, Callable
 
 from constants import (
     DB_FILENAME, DEFAULT_CSV_PATH, CSV_COLUMNS,
-    SQL_CREATE_PUZZLES, SQL_CREATE_THEMES, SQL_INDEXES
+    SQL_CREATE_PUZZLES, SQL_CREATE_THEMES, SQL_INDEXES,
+    IMPORT_BATCH_SIZE, IMPORT_PROGRESS_INTERVAL, FILTER_DEFAULT_LIMIT,
 )
 
 
@@ -138,7 +139,7 @@ class PuzzleDatabase:
         cursor.execute("DROP TABLE IF EXISTS puzzles")
         self._create_schema()
 
-        batch_size = 20_000
+        batch_size = IMPORT_BATCH_SIZE
         batch: List[tuple] = []
         theme_batch: List[tuple] = []
         total_inserted = 0
@@ -185,7 +186,7 @@ class PuzzleDatabase:
                         batch.clear()
                         theme_batch.clear()
 
-                    if progress_callback and i % 25_000 == 0:
+                    if progress_callback and i % IMPORT_PROGRESS_INTERVAL == 0:
                         progress_callback(i)
 
         except Exception as exc:
@@ -293,7 +294,7 @@ class PuzzleDatabase:
             list(themes) + [len(themes)],
         )
 
-    def filter_puzzles(
+    def _build_filter_conditions(
         self,
         puzzle_id_contains: str = "",
         rating_min: Optional[int] = None,
@@ -302,15 +303,13 @@ class PuzzleDatabase:
         popularity_max: Optional[int] = None,
         nb_plays_min: Optional[int] = None,
         nb_plays_max: Optional[int] = None,
-        themes: Optional[List[str]] = None,
-        opening_contains: str = "",
         color: Optional[str] = None,
+        opening_contains: str = "",
         daily_date_from: Optional[str] = None,
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
-        limit: int = 200,
-        offset: int = 0,
-    ) -> List[Puzzle]:
+        themes: Optional[List[str]] = None,
+    ) -> tuple[str, List[Any]]:
         conditions = ["1=1"]
         params: List[Any] = []
 
@@ -353,14 +352,50 @@ class PuzzleDatabase:
             )
             params.append(moves_exact)
 
-        sql = f"SELECT * FROM puzzles WHERE {' AND '.join(conditions)}"
+        where_clause = " AND ".join(conditions)
 
         if themes:
             theme_sql, theme_params = self._build_theme_condition(themes)
-            sql += f" AND {theme_sql}"
+            where_clause += f" AND {theme_sql}"
             params.extend(theme_params)
 
-        sql += " ORDER BY Rating DESC LIMIT ? OFFSET ?"
+        return where_clause, params
+
+    def filter_puzzles(
+        self,
+        puzzle_id_contains: str = "",
+        rating_min: Optional[int] = None,
+        rating_max: Optional[int] = None,
+        popularity_min: Optional[int] = None,
+        popularity_max: Optional[int] = None,
+        nb_plays_min: Optional[int] = None,
+        nb_plays_max: Optional[int] = None,
+        themes: Optional[List[str]] = None,
+        opening_contains: str = "",
+        color: Optional[str] = None,
+        daily_date_from: Optional[str] = None,
+        daily_date_to: Optional[str] = None,
+        moves_exact: Optional[int] = None,
+        limit: int = FILTER_DEFAULT_LIMIT,
+        offset: int = 0,
+    ) -> List[Puzzle]:
+        where_clause, params = self._build_filter_conditions(
+            puzzle_id_contains=puzzle_id_contains,
+            rating_min=rating_min,
+            rating_max=rating_max,
+            popularity_min=popularity_min,
+            popularity_max=popularity_max,
+            nb_plays_min=nb_plays_min,
+            nb_plays_max=nb_plays_max,
+            color=color,
+            opening_contains=opening_contains,
+            daily_date_from=daily_date_from,
+            daily_date_to=daily_date_to,
+            moves_exact=moves_exact,
+            themes=themes,
+        )
+
+        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         cursor = self.conn.cursor()
@@ -385,58 +420,23 @@ class PuzzleDatabase:
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
     ) -> int:
-        conditions = ["1=1"]
-        params: List[Any] = []
+        where_clause, params = self._build_filter_conditions(
+            puzzle_id_contains=puzzle_id_contains,
+            rating_min=rating_min,
+            rating_max=rating_max,
+            popularity_min=popularity_min,
+            popularity_max=popularity_max,
+            nb_plays_min=nb_plays_min,
+            nb_plays_max=nb_plays_max,
+            color=color,
+            opening_contains=opening_contains,
+            daily_date_from=daily_date_from,
+            daily_date_to=daily_date_to,
+            moves_exact=moves_exact,
+            themes=themes,
+        )
 
-        if puzzle_id_contains:
-            conditions.append("PuzzleId LIKE ?")
-            params.append(f"%{puzzle_id_contains}%")
-        if rating_min is not None:
-            conditions.append("Rating >= ?")
-            params.append(rating_min)
-        if rating_max is not None:
-            conditions.append("Rating <= ?")
-            params.append(rating_max)
-        if popularity_min is not None:
-            conditions.append("Popularity >= ?")
-            params.append(popularity_min)
-        if popularity_max is not None:
-            conditions.append("Popularity <= ?")
-            params.append(popularity_max)
-        if nb_plays_min is not None:
-            conditions.append("NbPlays >= ?")
-            params.append(nb_plays_min)
-        if nb_plays_max is not None:
-            conditions.append("NbPlays <= ?")
-            params.append(nb_plays_max)
-        if color:
-            conditions.append("Color = ?")
-            params.append(color)
-        if opening_contains:
-            conditions.append("OpeningTags LIKE ?")
-            params.append(f"%{opening_contains}%")
-        if daily_date_from:
-            conditions.append("DailyDate >= ?")
-            params.append(daily_date_from)
-        if daily_date_to:
-            conditions.append("DailyDate <= ?")
-            params.append(daily_date_to)
-        if moves_exact is not None:
-            conditions.append(
-                "(LENGTH(Moves) - LENGTH(REPLACE(Moves, ' ', '')) + 1) / 2 = ?"
-            )
-            params.append(moves_exact)
-
-        sql = f"SELECT COUNT(*) FROM puzzles WHERE {' AND '.join(conditions)}"
-
-        if themes:
-            if len(themes) == 1:
-                sql = f"SELECT COUNT(DISTINCT p.PuzzleId) FROM puzzles p JOIN puzzle_themes pt ON p.PuzzleId = pt.PuzzleId WHERE {' AND '.join(conditions)} AND pt.Theme = ?"
-                params = params + [themes[0]]
-            else:
-                theme_sql, theme_params = self._build_theme_condition(themes)
-                sql += f" AND {theme_sql}"
-                params.extend(theme_params)
+        sql = f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}"
 
         cursor = self.conn.cursor()
         cursor.execute(sql, params)

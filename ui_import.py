@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import threading
 
-from constants import t
+from constants import t, PROGRESS_WINDOW_GEOMETRY
 
 
 class PuzzleImportMixin:
@@ -22,7 +22,7 @@ class PuzzleImportMixin:
 
         progress_win = tk.Toplevel(self.root)
         progress_win.title(t("progress_title"))
-        progress_win.geometry("500x140")
+        progress_win.geometry(PROGRESS_WINDOW_GEOMETRY)
         progress_win.transient(self.root)
         progress_win.grab_set()
         progress_win.resizable(True, True)

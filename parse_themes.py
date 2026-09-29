@@ -5,13 +5,15 @@ import json
 import re
 from urllib.request import urlopen, Request
 
+from constants import FETCH_TIMEOUT
+
 
 URL = "https://lichess.org/training/themes"
 
 
 def fetch_page(url: str) -> str:
     req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urlopen(req, timeout=30) as resp:
+    with urlopen(req, timeout=FETCH_TIMEOUT) as resp:
         return resp.read().decode("utf-8")
 
 

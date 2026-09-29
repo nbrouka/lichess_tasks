@@ -22,6 +22,10 @@ puzzles.db
 .piece_cache/
 f0qUr.png
 
+# Generated files
+*.docx
+*.log
+
 # OS
 .DS_Store
 Thumbs.db

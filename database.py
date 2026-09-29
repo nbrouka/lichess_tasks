@@ -142,49 +142,54 @@ class PuzzleDatabase:
         batch: List[tuple] = []
         theme_batch: List[tuple] = []
         total_inserted = 0
+        i = 0
 
-        with open(self.csv_path, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            next(reader)
+        try:
+            with open(self.csv_path, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                next(reader)
 
-            for i, row in enumerate(reader, start=1):
-                puzzle_id, fen, moves = row[0], row[1], row[2]
-                rating = int(row[3]) if row[3] else None
-                rating_deviation = int(row[4]) if row[4] else None
-                popularity = int(row[5]) if row[5] else None
-                nb_plays = int(row[6]) if row[6] else None
-                themes = row[7] if len(row) > 7 else ""
-                game_url = row[8] if len(row) > 8 else ""
-                opening_tags = row[9] if len(row) > 9 else ""
-                daily_date = row[10] if len(row) > 10 and row[10] else None
+                for i, row in enumerate(reader, start=1):
+                    puzzle_id, fen, moves = row[0], row[1], row[2]
+                    rating = int(row[3]) if row[3] else None
+                    rating_deviation = int(row[4]) if row[4] else None
+                    popularity = int(row[5]) if row[5] else None
+                    nb_plays = int(row[6]) if row[6] else None
+                    themes = row[7] if len(row) > 7 else ""
+                    game_url = row[8] if len(row) > 8 else ""
+                    opening_tags = row[9] if len(row) > 9 else ""
+                    daily_date = row[10] if len(row) > 10 and row[10] else None
 
-                color = fen.split()[1] if len(fen.split()) > 1 else "w"
+                    color = fen.split()[1] if len(fen.split()) > 1 else "w"
 
-                batch.append((
-                    puzzle_id, fen, moves, rating, rating_deviation,
-                    popularity, nb_plays, themes, game_url,
-                    opening_tags, daily_date, color,
-                ))
+                    batch.append((
+                        puzzle_id, fen, moves, rating, rating_deviation,
+                        popularity, nb_plays, themes, game_url,
+                        opening_tags, daily_date, color,
+                    ))
 
-                for theme in themes.split():
-                    theme_batch.append((puzzle_id, theme))
+                    for theme in themes.split():
+                        theme_batch.append((puzzle_id, theme))
 
-                if len(batch) >= batch_size:
-                    cursor.executemany(
-                        "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                        batch,
-                    )
-                    cursor.executemany(
-                        "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?)",
-                        theme_batch,
-                    )
-                    self.conn.commit()
-                    total_inserted += len(batch)
-                    batch.clear()
-                    theme_batch.clear()
+                    if len(batch) >= batch_size:
+                        cursor.executemany(
+                            "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                            batch,
+                        )
+                        cursor.executemany(
+                            "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?)",
+                            theme_batch,
+                        )
+                        self.conn.commit()
+                        total_inserted += len(batch)
+                        batch.clear()
+                        theme_batch.clear()
 
-                if progress_callback and i % 25_000 == 0:
-                    progress_callback(i)
+                    if progress_callback and i % 25_000 == 0:
+                        progress_callback(i)
+
+        except Exception as exc:
+            raise RuntimeError(f"Failed to import CSV: {exc}") from exc
 
         if batch:
             cursor.executemany(
@@ -462,20 +467,3 @@ class PuzzleDatabase:
     def ensure_imported(self, progress_callback=None) -> None:
         if not self.is_imported():
             self.import_csv(progress_callback)
-
-    # ------------------------------------------------------------------
-    # Справочники
-    # ------------------------------------------------------------------
-    def get_all_themes(self) -> List[str]:
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT DISTINCT Theme FROM puzzle_themes ORDER BY Theme")
-        return [r[0] for r in cursor.fetchall()]
-
-    def get_all_openings(self) -> List[str]:
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT DISTINCT OpeningTags FROM puzzles "
-            "WHERE OpeningTags IS NOT NULL AND OpeningTags != '' "
-            "ORDER BY OpeningTags"
-        )
-        return [r[0] for r in cursor.fetchall()]

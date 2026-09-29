@@ -231,13 +231,6 @@ class TestFilterCombinations(unittest.TestCase):
              patch.object(threading, "Thread", lambda **kwargs: type("FakeThread", (), {"start": lambda self: None})()):
             self.app._apply_filter()
 
-    def test_apply_filter_does_not_raise(self):
-        from unittest.mock import patch
-
-        with patch.object(self.app.root, "after", lambda ms, func, *args: func()), \
-             patch.object(threading, "Thread", lambda **kwargs: type("FakeThread", (), {"start": lambda self: None})()):
-            self.app._apply_filter()
-
     def test_pagination_loads_more_when_at_end(self):
         PuzzleMock = type('Puzzle', (), {
             'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',

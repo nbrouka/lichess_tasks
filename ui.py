@@ -83,7 +83,6 @@ class PuzzleApp(
 
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label=t("menu_about"), command=self._show_about)
-        help_menu.add_command(label=t("menu_fields_help"), command=self._show_fields_help)
         menubar.add_cascade(label=t("menu_help"), menu=help_menu)
 
         self.root.config(menu=menubar)
@@ -243,12 +242,6 @@ class PuzzleApp(
         messagebox.showinfo(
             t("about_title"),
             t("about_text"),
-        )
-
-    def _show_fields_help(self) -> None:
-        messagebox.showinfo(
-            t("fields_title"),
-            t("fields_text"),
         )
 
     # ------------------------------------------------------------------

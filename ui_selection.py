@@ -82,7 +82,7 @@ class PuzzleSelectionMixin:
 
         dialog = tk.Toplevel(self.root)
         dialog.title("Создать листы")
-        dialog.geometry("420x160")
+        dialog.geometry("420x220")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -130,7 +130,7 @@ class PuzzleSelectionMixin:
 
     def _create_sheets_docx(self, path: str, topic: str) -> None:
         from docx import Document
-        from docx.shared import Cm, Pt
+        from docx.shared import Cm, Emu, Pt
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.oxml.ns import qn
         from docx.oxml import OxmlElement
@@ -138,10 +138,10 @@ class PuzzleSelectionMixin:
         logger.info("DOCX export started path=%s topic=%s total_puzzles=%d", path, topic, len(self.selected_puzzles))
         doc = Document()
         section = doc.sections[0]
-        section.top_margin = Cm(0.5)
-        section.bottom_margin = Cm(0.5)
-        section.left_margin = Cm(0.5)
-        section.right_margin = Cm(0.5)
+        section.top_margin = Cm(1.0)
+        section.bottom_margin = Cm(1.0)
+        section.left_margin = Cm(1.0)
+        section.right_margin = Cm(1.0)
 
         puzzles = self.selected_puzzles
 
@@ -198,10 +198,12 @@ class PuzzleSelectionMixin:
                 cell_left = header_table.cell(0, 0)
                 cell_left.text = f"Лист {sheet_num}"
                 cell_left.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+                cell_left.paragraphs[0].paragraph_format.space_after = Pt(0)
 
                 cell_center = header_table.cell(0, 1)
                 cell_center.text = topic
                 cell_center.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cell_center.paragraphs[0].paragraph_format.space_after = Pt(0)
 
                 for row in header_table.rows:
                     for cell in row.cells:
@@ -212,12 +214,12 @@ class PuzzleSelectionMixin:
                 table.allow_autofit = False
                 table.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 for col in table.columns:
-                    col.width = Cm(6.2)
+                    col.width = Cm(6.33)
 
                 for row in table.rows:
-                    set_row_height(row, 3200)
+                    set_row_height(row, 2600)
                     for cell in row.cells:
-                        set_cell_margins(cell, top=20, bottom=20, left=20, right=20)
+                        set_cell_margins(cell, top=0, bottom=10, left=0, right=0)
                         set_cell_border(cell, top={"val": "nil", "sz": 0}, bottom={"val": "nil", "sz": 0}, left={"val": "nil", "sz": 0}, right={"val": "nil", "sz": 0})
 
                 for i, puzzle in enumerate(page_puzzles):
@@ -241,17 +243,19 @@ class PuzzleSelectionMixin:
                     temp_files.append(img_path)
                     logger.debug("Saved temporary image %s size=%s", img_path, img.size)
 
-                    run = cell.add_paragraph().add_run()
-                    run.add_picture(img_path, width=Cm(4.5))
-                    run.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p0 = cell.paragraphs[0]
+                    p0.paragraph_format.space_after = Pt(0)
+                    run = p0.add_run()
+                    run.add_picture(img_path, width=Emu(2000000))
+                    run.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                     run.font.size = Pt(9)
                     run.font.name = 'Cambria'
 
                     p = cell.add_paragraph()
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    p.paragraph_format.space_before = Pt(0)
-                    p.paragraph_format.space_after = Pt(0)
-                    p.paragraph_format.line_spacing = Pt(8)
+                    p.paragraph_format.space_before = Pt(2)
+                    p.paragraph_format.space_after = Pt(4)
+                    p.paragraph_format.line_spacing = Pt(6)
                     color_text = "Ход белых" if puzzle.color == "w" else "Ход черных"
                     p.add_run(f"№{global_idx}. {color_text}")
 

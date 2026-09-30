@@ -3,8 +3,6 @@
 Поддерживает два режима: unicode-фигуры и SVG-фигуры с lichess CDN.
 """
 
-import hashlib
-import os
 import requests
 from pathlib import Path
 from io import BytesIO
@@ -28,15 +26,17 @@ _PIECE_MAP = {
 class PieceSet:
     """Загружает и кэширует SVG-фигуры с lichess CDN."""
 
+    _cache: dict[str, "Image.Image"] = {}
+
     def __init__(self, cache_dir: str = ".piece_cache", size: int = SQUARE_SIZE):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self.size = size
-        self._pieces = {}
 
-    def get_piece(self, piece_symbol: str) -> Image.Image:
-        if piece_symbol in self._pieces:
-            return self._pieces[piece_symbol]
+    def get_piece(self, piece_symbol: str) -> "Image.Image":
+        key = f"{piece_symbol}_{self.size}"
+        if key in PieceSet._cache:
+            return PieceSet._cache[key]
 
         piece_name = _PIECE_MAP[piece_symbol]
         cache_path = self.cache_dir / f"{piece_name}_{self.size}.png"
@@ -55,7 +55,7 @@ class PieceSet:
             img = Image.open(BytesIO(png_bytes)).convert("RGBA")
             img.save(cache_path, "PNG")
 
-        self._pieces[piece_symbol] = img
+        PieceSet._cache[key] = img
         return img
 
 

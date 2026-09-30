@@ -100,7 +100,6 @@ THEME_TRANSLATIONS = {
     "queenRookEndgame": "Ферзь + ладья",
     "collinearMove": "Коллинеарный ход",
     "cornerMate": "Угловой мат",
-    "dovetailMate": "Мат «голубка»",
     "epauletteMate": "Мат «эполет»",
     "killBoxMate": "Мат в «kill box»",
     "morphysMate": "Мат Морфи",
@@ -185,6 +184,7 @@ UI_TRANSLATIONS = {
         "msg_import_success": "Импорт завершён!",
         "msg_import_error": "Ошибка импорта",
         "msg_select_puzzle": "Сначала выберите задачу.",
+        "msg_no_selected_puzzles": "Нет выбранных задач.",
         "about_title": "О программе",
         "about_text": "Lichess Puzzle Viewer\nПросмотр и фильтрация задач из открытой базы Lichess.\n\nБаза: https://database.lichess.org/#puzzles",
         "progress_title": "Импорт CSV",
@@ -248,6 +248,7 @@ UI_TRANSLATIONS = {
         "msg_import_success": "Import complete!",
         "msg_import_error": "Import error",
         "msg_select_puzzle": "Please select a puzzle first.",
+        "msg_no_selected_puzzles": "No selected puzzles.",
         "about_title": "About",
         "about_text": "Lichess Puzzle Viewer\nBrowse and filter puzzles from the public Lichess database.\n\nDatabase: https://database.lichess.org/#puzzles",
         "progress_title": "Import CSV",
@@ -270,6 +271,12 @@ COLOR_RU_TO_EN = {
 def t(key: str, **kwargs) -> str:
     text = UI_TRANSLATIONS.get(LANG, UI_TRANSLATIONS["en"]).get(key, key)
     return text.format(**kwargs) if kwargs else text
+
+
+def current_player_color_name(stored_color: str) -> str:
+    """Returns Russian name of the color currently to move,
+    based on the stored color of the side that just moved."""
+    return "Ход белых" if stored_color == "b" else "Ход черных"
 
 THEME_CATEGORIES = [
     ("Рекомендуемые", ["healthyMix"]),
@@ -323,6 +330,8 @@ WINDOW_GEOMETRY = "1050x720"
 WINDOW_MINSIZE = (900, 600)
 PROGRESS_WINDOW_GEOMETRY = "500x140"
 DOCX_DIALOG_GEOMETRY = "420x220"
+FILTERS_PANEL_WIDTH = 320
+SELECTED_PANEL_WIDTH = 305
 
 # ---------------------------------------------------------------------------
 # DOCX экспорт
@@ -334,6 +343,19 @@ DOCX_TABLE_ROWS = 4
 DOCX_TABLE_COLS = 3
 DOCX_COL_WIDTH_CM = 6.33
 DOCX_ROW_HEIGHT_TWIPS = 2600
+DOCX_HEADER_LEFT_COL_WIDTH_CM = 3.5
+DOCX_HEADER_RIGHT_COL_WIDTH_CM = 15.0
+DOCX_ANSWER_MARGIN_CM = 1.0
+DOCX_CAPTION_SPACE_AFTER_PT = 4
+DOCX_ANSWER_SPACE_AFTER_PT = 6
+DOCX_CELL_MARGIN_TOP_DXA = 0
+DOCX_CELL_MARGIN_BOTTOM_DXA = 10
+DOCX_CELL_MARGIN_LEFT_DXA = 0
+DOCX_CELL_MARGIN_RIGHT_DXA = 0
+DOCX_CELL_BORDER_VAL = "nil"
+DOCX_CELL_BORDER_SZ = 0
+DOCX_PARAGRAPH_SPACE_BEFORE_PT = 2
+DOCX_PARAGRAPH_LINE_SPACING_PT = 6
 
 # ---------------------------------------------------------------------------
 # SQL

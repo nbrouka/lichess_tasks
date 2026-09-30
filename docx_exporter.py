@@ -14,6 +14,8 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from PIL import Image
 
+from typing import Any, Optional, Sequence
+
 from board_renderer import render_puzzle
 from constants import (
     DOCX_MARGIN_CM,
@@ -22,12 +24,26 @@ from constants import (
     DOCX_ROW_HEIGHT_TWIPS,
     DOCX_IMAGE_WIDTH_EMU,
     THUMBNAIL_SQUARE_SIZE,
+    current_player_color_name,
+    DOCX_TABLE_ROWS,
+    DOCX_TABLE_COLS,
+    DOCX_HEADER_LEFT_COL_WIDTH_CM,
+    DOCX_HEADER_RIGHT_COL_WIDTH_CM,
+    DOCX_CELL_MARGIN_TOP_DXA,
+    DOCX_CELL_MARGIN_BOTTOM_DXA,
+    DOCX_CELL_MARGIN_LEFT_DXA,
+    DOCX_CELL_MARGIN_RIGHT_DXA,
+    DOCX_CELL_BORDER_VAL,
+    DOCX_CELL_BORDER_SZ,
+    DOCX_PARAGRAPH_SPACE_BEFORE_PT,
+    DOCX_CAPTION_SPACE_AFTER_PT,
+    DOCX_PARAGRAPH_LINE_SPACING_PT,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _set_cell_border(cell, **kwargs):
+def _set_cell_border(cell, **kwargs: Any) -> None:
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
     tcBorders = OxmlElement('w:tcBorders')
@@ -36,15 +52,15 @@ def _set_cell_border(cell, **kwargs):
         if edge_data:
             tag = 'w:{}'.format(edge)
             element = OxmlElement(tag)
-            element.set(qn('w:val'), str(edge_data.get('val', 'nil')))
-            element.set(qn('w:sz'), str(edge_data.get('sz', 0)))
+            element.set(qn('w:val'), str(edge_data.get('val', DOCX_CELL_BORDER_VAL)))
+            element.set(qn('w:sz'), str(edge_data.get('sz', DOCX_CELL_BORDER_SZ)))
             element.set(qn('w:space'), '0')
             element.set(qn('w:color'), str(edge_data.get('color', 'auto')))
             tcBorders.append(element)
     tcPr.append(tcBorders)
 
 
-def _set_row_height(row, height_twips):
+def _set_row_height(row, height_twips: int) -> None:
     tr = row._tr
     trPr = tr.get_or_add_trPr()
     trHeight = OxmlElement('w:trHeight')
@@ -53,11 +69,17 @@ def _set_row_height(row, height_twips):
     trPr.append(trHeight)
 
 
-def _set_cell_margins(cell, top=0, bottom=10, left=0, right=0):
+def _set_cell_margins(cell, top: Optional[int] = None, bottom: Optional[int] = None, left: Optional[int] = None, right: Optional[int] = None) -> None:
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
     tcMar = OxmlElement('w:tcMar')
-    for edge, val in [('top', top), ('bottom', bottom), ('left', left), ('right', right)]:
+    margins = {
+        'top': top if top is not None else DOCX_CELL_MARGIN_TOP_DXA,
+        'bottom': bottom if bottom is not None else DOCX_CELL_MARGIN_BOTTOM_DXA,
+        'left': left if left is not None else DOCX_CELL_MARGIN_LEFT_DXA,
+        'right': right if right is not None else DOCX_CELL_MARGIN_RIGHT_DXA,
+    }
+    for edge, val in margins.items():
         elem = OxmlElement('w:{}'.format(edge))
         elem.set(qn('w:w'), str(val))
         elem.set(qn('w:type'), 'dxa')
@@ -68,7 +90,7 @@ def _set_cell_margins(cell, top=0, bottom=10, left=0, right=0):
 class PuzzleDocxExporter:
     """Exports selected puzzles to a DOCX document."""
 
-    def __init__(self, puzzles, topic):
+    def __init__(self, puzzles: Sequence[Any], topic: str) -> None:
         self.puzzles = puzzles
         self.topic = topic
 
@@ -93,8 +115,8 @@ class PuzzleDocxExporter:
 
                 header_table = doc.add_table(rows=1, cols=2)
                 header_table.autofit = False
-                header_table.columns[0].width = Cm(3.5)
-                header_table.columns[1].width = Cm(15)
+                header_table.columns[0].width = Cm(DOCX_HEADER_LEFT_COL_WIDTH_CM)
+                header_table.columns[1].width = Cm(DOCX_HEADER_RIGHT_COL_WIDTH_CM)
 
                 cell_left = header_table.cell(0, 0)
                 cell_left.text = f"Лист {sheet_num}"
@@ -108,9 +130,9 @@ class PuzzleDocxExporter:
 
                 for row in header_table.rows:
                     for cell in row.cells:
-                        _set_cell_border(cell, top={"val": "nil", "sz": 0}, bottom={"val": "nil", "sz": 0}, left={"val": "nil", "sz": 0}, right={"val": "nil", "sz": 0})
+                        _set_cell_border(cell, top={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, bottom={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, left={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, right={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ})
 
-                table = doc.add_table(rows=4, cols=3)
+                table = doc.add_table(rows=DOCX_TABLE_ROWS, cols=DOCX_TABLE_COLS)
                 table.autofit = False
                 table.allow_autofit = False
                 table.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -120,8 +142,14 @@ class PuzzleDocxExporter:
                 for row in table.rows:
                     _set_row_height(row, DOCX_ROW_HEIGHT_TWIPS)
                     for cell in row.cells:
-                        _set_cell_margins(cell, top=0, bottom=10, left=0, right=0)
-                        _set_cell_border(cell, top={"val": "nil", "sz": 0}, bottom={"val": "nil", "sz": 0}, left={"val": "nil", "sz": 0}, right={"val": "nil", "sz": 0})
+                        _set_cell_margins(
+                            cell,
+                            top=DOCX_CELL_MARGIN_TOP_DXA,
+                            bottom=DOCX_CELL_MARGIN_BOTTOM_DXA,
+                            left=DOCX_CELL_MARGIN_LEFT_DXA,
+                            right=DOCX_CELL_MARGIN_RIGHT_DXA,
+                        )
+                        _set_cell_border(cell, top={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, bottom={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, left={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ}, right={"val": DOCX_CELL_BORDER_VAL, "sz": DOCX_CELL_BORDER_SZ})
 
                 for i, puzzle in enumerate(page_puzzles):
                     row_idx = i // 3
@@ -154,10 +182,10 @@ class PuzzleDocxExporter:
 
                     p = cell.add_paragraph()
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    p.paragraph_format.space_before = Pt(2)
-                    p.paragraph_format.space_after = Pt(4)
-                    p.paragraph_format.line_spacing = Pt(6)
-                    color_text = "Ход белых" if puzzle.color == "b" else "Ход черных"
+                    p.paragraph_format.space_before = Pt(DOCX_PARAGRAPH_SPACE_BEFORE_PT)
+                    p.paragraph_format.space_after = Pt(DOCX_CAPTION_SPACE_AFTER_PT)
+                    p.paragraph_format.line_spacing = Pt(DOCX_PARAGRAPH_LINE_SPACING_PT)
+                    color_text = current_player_color_name(puzzle.color)
                     p.add_run(f"№{global_idx}. {color_text}")
 
             logger.info("Saving document path=%s", path)

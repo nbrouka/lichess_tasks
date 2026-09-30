@@ -33,7 +33,7 @@ class Puzzle:
         opening_tags: List[str],
         daily_date: Optional[str],
         color: str,
-    ):
+    ) -> None:
         self.puzzle_id = puzzle_id
         self.fen = fen
         self.moves = moves

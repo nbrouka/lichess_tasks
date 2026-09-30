@@ -8,7 +8,8 @@ import threading
 from typing import Optional
 
 from constants import (
-    THEME_RU_TO_EN, COLOR_RU_TO_EN, t
+    THEME_RU_TO_EN, COLOR_RU_TO_EN, t,
+    FILTER_PAGE_SIZE,
 )
 
 
@@ -192,7 +193,7 @@ class PuzzleFiltersMixin:
 
         def run():
             count = self.db.count_filtered(**self._filter_values)
-            puzzles = self.db.filter_puzzles(**self._filter_values, limit=100, offset=0)
+            puzzles = self.db.filter_puzzles(**self._filter_values, limit=FILTER_PAGE_SIZE, offset=0)
             self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
 
         threading.Thread(target=run, daemon=True).start()
@@ -220,7 +221,7 @@ class PuzzleFiltersMixin:
         def run():
             new_puzzles = self.db.filter_puzzles(
                 **self._filter_values,
-                limit=100,
+                limit=FILTER_PAGE_SIZE,
                 offset=self._filter_offset,
             )
             self.root.after(0, lambda: self._on_more_loaded(new_puzzles))

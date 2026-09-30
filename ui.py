@@ -18,6 +18,7 @@ from constants import (
     CATEGORY_TRANSLATIONS, CATEGORY_RU_TO_EN,
     UI_TRANSLATIONS, LANG, t, COLOR_RU_TO_EN,
     WINDOW_GEOMETRY, WINDOW_MINSIZE,
+    FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
 )
 
 from ui_puzzle_view import PuzzleViewMixin
@@ -95,7 +96,7 @@ class PuzzleApp(
         main.pack(fill=tk.BOTH, expand=True)
 
         # Левая панель: фильтры
-        left = ttk.Frame(main, width=320)
+        left = ttk.Frame(main, width=FILTERS_PANEL_WIDTH)
         left.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
         left.pack_propagate(False)
 
@@ -200,7 +201,7 @@ class PuzzleApp(
         self.stats_label = ttk.Label(center, text="")
         self.stats_label.grid(row=5, column=0, sticky="w", pady=(2, 0))
 
-        right = ttk.Frame(main, width=305)
+        right = ttk.Frame(main, width=SELECTED_PANEL_WIDTH)
         right.pack(side=tk.RIGHT, fill=tk.Y, padx=5, pady=5)
         right.pack_propagate(False)
 

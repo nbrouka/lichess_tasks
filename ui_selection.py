@@ -3,16 +3,18 @@ Mixin for selected puzzles panel in Lichess Puzzle Viewer.
 """
 
 import logging
-import os
-import tempfile
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 
 from board_renderer import render_puzzle
-from constants import t, THUMBNAIL_SQUARE_SIZE, DOCX_DIALOG_GEOMETRY
+from constants import t, THUMBNAIL_SQUARE_SIZE, DOCX_DIALOG_GEOMETRY, current_player_color_name, DOCX_ANSWER_MARGIN_CM, DOCX_ANSWER_SPACE_AFTER_PT
+from database import Puzzle
 from docx_exporter import PuzzleDocxExporter
+from docx import Document
+from docx.shared import Cm, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 LOG_PATH = Path(__file__).parent / "docx_export.log"
 logger = logging.getLogger("docx_export")
@@ -61,7 +63,7 @@ class PuzzleSelectionMixin:
         self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
         self._update_selected_title()
 
-    def _remove_from_selected(self, puzzle, wrapper) -> None:
+    def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
         if puzzle in self.selected_puzzles:
             self.selected_puzzles.remove(puzzle)
         wrapper.destroy()
@@ -72,13 +74,13 @@ class PuzzleSelectionMixin:
     def _update_selected_title(self) -> None:
         self.selected_title_label.config(text=f"{t('selected_title')} ({len(self.selected_puzzles)})")
 
-    def _on_selected_canvas_resize(self, event) -> None:
+    def _on_selected_canvas_resize(self, event: tk.Event) -> None:
         self.selected_canvas.itemconfig(self._selected_window_id, width=event.width)
 
     def _create_sheets_dialog(self) -> None:
         logger.info("Open DOCX export dialog, selected puzzles count=%d", len(self.selected_puzzles))
         if not self.selected_puzzles:
-            messagebox.showinfo(t("about_title"), "Нет выбранных задач.")
+            messagebox.showinfo(t("about_title"), t("msg_no_selected_puzzles"))
             return
 
         dialog = tk.Toplevel(self.root)
@@ -141,65 +143,51 @@ class PuzzleSelectionMixin:
         self._create_answers_docx(answers_path, topic, puzzles)
 
     def _create_answers_docx(self, path: str, topic: str, puzzles: list) -> None:
-        from docx import Document
-        from docx.shared import Cm, Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-
         logger.info("Creating answers DOCX path=%s puzzles=%d", path, len(puzzles))
 
         doc = Document()
         section = doc.sections[0]
-        section.top_margin = Cm(1.0)
-        section.bottom_margin = Cm(1.0)
-        section.left_margin = Cm(1.0)
-        section.right_margin = Cm(1.0)
+        section.top_margin = Cm(DOCX_ANSWER_MARGIN_CM)
+        section.bottom_margin = Cm(DOCX_ANSWER_MARGIN_CM)
+        section.left_margin = Cm(DOCX_ANSWER_MARGIN_CM)
+        section.right_margin = Cm(DOCX_ANSWER_MARGIN_CM)
 
         doc.add_paragraph(f"Тема: {topic}")
 
         for idx, puzzle in enumerate(puzzles, 1):
-            actual_color = "Ход белых" if puzzle.color == "b" else "Ход черных"
-            moves = puzzle.solution.split()
-            if not moves:
-                formatted_solution = ""
-            else:
-                if actual_color == "Ход черных":
-                    parts = []
-                    move_number = 1
-                    i = 0
-                    while i < len(moves):
-                        if i == 0:
-                            parts.append(f"{move_number}. ... {moves[i]}")
-                            i += 1
-                            move_number += 1
-                        else:
-                            if i + 1 < len(moves):
-                                parts.append(f"{move_number}. {moves[i]} {moves[i+1]}")
-                                i += 2
-                                move_number += 1
-                            else:
-                                parts.append(f"{move_number}. {moves[i]}")
-                                i += 1
-                                move_number += 1
-                    formatted_solution = " ".join(parts)
-                else:
-                    parts = []
-                    i = 0
-                    move_number = 1
-                    while i < len(moves):
-                        if i + 1 < len(moves):
-                            parts.append(f"{move_number}. {moves[i]} {moves[i+1]}")
-                            i += 2
-                            move_number += 1
-                        else:
-                            parts.append(f"{move_number}. {moves[i]}")
-                            i += 1
-                            move_number += 1
-                    formatted_solution = " ".join(parts)
+            formatted_solution = self._format_answers_solution(puzzle)
+            color_text = current_player_color_name(puzzle.color)
             p = doc.add_paragraph()
-            p.paragraph_format.space_after = Pt(6)
-            p.add_run(f"№{idx}. {actual_color}: {formatted_solution}")
+            p.paragraph_format.space_after = Pt(DOCX_ANSWER_SPACE_AFTER_PT)
+            p.add_run(f"№{idx}. {color_text}: {formatted_solution}")
 
         doc.save(path)
+
+    def _format_answers_solution(self, puzzle: Puzzle) -> str:
+        moves = puzzle.solution.split()
+        if not moves:
+            return ""
+
+        is_black_first = puzzle.color == "b"
+        parts = []
+        move_number = 1
+        i = 0
+
+        if is_black_first:
+            parts.append(f"{move_number}. ... {moves[i]}")
+            i = 1
+            move_number = 2
+
+        while i < len(moves):
+            if i + 1 < len(moves):
+                parts.append(f"{move_number}. {moves[i]} {moves[i + 1]}")
+                i += 2
+            else:
+                parts.append(f"{move_number}. {moves[i]}")
+                i += 1
+            move_number += 1
+
+        return " ".join(parts)
 
     def _clear_selection(self) -> None:
         self.selected_puzzles.clear()

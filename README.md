@@ -24,6 +24,53 @@ python main.py
 - requests
 - python-docx
 
+## Логи экспорта DOCX
+
+Файл `docx_export.log` создаётся автоматически в папке проекта.
+
+### Linux
+
+Для автоматического архивирования логов добавьте в crontab:
+
+```bash
+crontontab -l 2>/dev/null; echo "0 3 * * * /usr/bin/python3 /home/anduser/python/lichess_tasks/log_archive.py >> /home/anduser/python/lichess_tasks/log_archive.log 2>&1" | crontab -
+```
+
+Это запустит `log_archive.py` каждый день в 03:00. Скрипт:
+- переименовывает `docx_export.log` в `docx_export-YYYYMMDD-HHMMSS.log`
+- сжимает его в `.gz`
+- удаляет архивы старше 10 дней
+
+### Windows
+
+Для автоматического архивирования логов используйте `Планировщик заданий`:
+
+1. Откройте `Планировщик заданий` (`taskschd.msc`)
+2. Создайте простую задачу
+3. Триггер: ежедневно, время запуска — `03:00`
+4. Действие: запуск программы
+5. Программа: путь к Python, например:
+   ```
+   C:\Python39\python.exe
+   ```
+6. Аргументы:
+   ```
+   C:\path\to\lichess_tasks\log_archive.py
+   ```
+7. В разделе `Настройка` отметьте `Выполнить, даже если пользователь не вошёл в систему`
+8. В `Условия` отметьте `Запускать только при питании от электросети`
+
+Скрипт `log_archive.py`:
+- переименовывает `docx_export.log` в `docx_export-YYYYMMDD-HHMMSS.log`
+- сжимает его в `.gz`
+- удаляет архивы старше 10 дней
+
+### Ручной запуск
+
+```bash
+python log_archive.py
+```
+
 ## Тесты
 
 ```bash

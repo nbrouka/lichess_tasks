@@ -13,7 +13,8 @@ from hashlib import md5
 
 from constants import (
     DB_FILENAME, DEFAULT_CSV_PATH, CSV_COLUMNS,
-    SQL_CREATE_PUZZLES, SQL_CREATE_THEMES, SQL_INDEXES,
+    SQL_CREATE_PUZZLES, SQL_CREATE_THEMES, SQL_CREATE_USER_THEMES,
+    SQL_CREATE_USER_PUZZLE_THEMES, SQL_INDEXES,
     IMPORT_BATCH_SIZE, IMPORT_PROGRESS_INTERVAL, FILTER_DEFAULT_LIMIT,
 )
 
@@ -97,12 +98,16 @@ class PuzzleDatabase:
         cursor = self.conn.cursor()
         cursor.execute(SQL_CREATE_PUZZLES)
         cursor.executescript(SQL_CREATE_THEMES)
+        cursor.execute(SQL_CREATE_USER_THEMES)
+        cursor.execute(SQL_CREATE_USER_PUZZLE_THEMES)
         self.conn.commit()
 
-    def create_indexes(self) -> None:
+    def create_indexes(self, progress_callback: Optional[Callable[[int], None]] = None) -> None:
         cursor = self.conn.cursor()
-        for sql in SQL_INDEXES:
+        for idx, sql in enumerate(SQL_INDEXES, start=1):
             cursor.execute(sql)
+            if progress_callback:
+                progress_callback(idx)
         self.conn.commit()
 
     # ------------------------------------------------------------------
@@ -121,7 +126,7 @@ class PuzzleDatabase:
     # ------------------------------------------------------------------
     # Импорт CSV
     # ------------------------------------------------------------------
-    def import_csv(self, progress_callback: Optional[Callable[[int], None]] = None) -> None:
+    def import_csv(self, progress_callback: Optional[Callable[[int], None]] = None, status_callback: Optional[Callable[[str], None]] = None) -> None:
         """
         Импортирует CSV в SQLite с оптимизацией для больших файлов.
 
@@ -209,7 +214,9 @@ class PuzzleDatabase:
             total_inserted += len(batch)
 
         self.conn.commit()
-        self.create_indexes()
+        if status_callback:
+            status_callback(f"Creating indexes (0/{len(SQL_INDEXES)})")
+        self.create_indexes(progress_callback=lambda idx: status_callback(f"Creating indexes ({idx}/{len(SQL_INDEXES)})") if status_callback else None)
         self._invalidate_cache()
 
         if progress_callback:
@@ -230,6 +237,11 @@ class PuzzleDatabase:
             "WHERE OpeningTags IS NOT NULL AND OpeningTags != '' "
             "ORDER BY OpeningTags"
         )
+        return [r[0] for r in cursor.fetchall()]
+
+    def get_user_themes(self) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT name FROM user_themes ORDER BY name")
         return [r[0] for r in cursor.fetchall()]
 
     def get_stats(self, filters: Optional[dict] = None) -> dict:
@@ -321,6 +333,7 @@ class PuzzleDatabase:
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
         themes: Optional[List[str]] = None,
+        user_themes: Optional[List[str]] = None,
     ) -> tuple[str, List[Any]]:
         conditions = ["1=1"]
         params: List[Any] = []
@@ -375,6 +388,18 @@ class PuzzleDatabase:
             where_clause += f" AND {theme_sql}"
             params.extend(theme_params)
 
+        if user_themes:
+            unique_user_themes = [name for name in user_themes if name]
+            if unique_user_themes:
+                placeholders = ",".join(["?"] * len(unique_user_themes))
+                where_clause += (
+                    f" AND PuzzleId IN ("
+                    f"SELECT puzzle_id FROM puzzle_user_themes "
+                    f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                    f")"
+                )
+                params.extend(unique_user_themes)
+
         return where_clause, params
 
     def _has_moves_count_column(self) -> bool:
@@ -422,6 +447,7 @@ class PuzzleDatabase:
         daily_date_from: Optional[str] = None,
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
+        user_themes: Optional[List[str]] = None,
         limit: int = FILTER_DEFAULT_LIMIT,
         offset: int = 0,
         return_total: bool = False,
@@ -440,6 +466,7 @@ class PuzzleDatabase:
             daily_date_from=daily_date_from,
             daily_date_to=daily_date_to,
             moves_exact=moves_exact,
+            user_themes=user_themes,
         )
         cached = self._get_cached(cache_key, f"filter:{offset}:{limit}")
         if cached is not None:
@@ -460,6 +487,7 @@ class PuzzleDatabase:
             daily_date_to=daily_date_to,
             moves_exact=moves_exact,
             themes=themes,
+            user_themes=user_themes,
         )
 
         if return_total:
@@ -505,6 +533,7 @@ class PuzzleDatabase:
         daily_date_from: Optional[str] = None,
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
+        user_themes: Optional[List[str]] = None,
     ) -> int:
         where_clause, params = self._build_filter_conditions(
             puzzle_id_contains=puzzle_id_contains,
@@ -520,6 +549,7 @@ class PuzzleDatabase:
             daily_date_to=daily_date_to,
             moves_exact=moves_exact,
             themes=themes,
+            user_themes=user_themes,
         )
 
         sql = f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}"
@@ -527,6 +557,30 @@ class PuzzleDatabase:
         cursor = self.conn.cursor()
         cursor.execute(sql, params)
         return cursor.fetchone()[0]
+
+    # ------------------------------------------------------------------
+    # Пользовательские темы
+    # ------------------------------------------------------------------
+    def get_or_create_user_theme(self, name: str) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id FROM user_themes WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        cursor.execute("INSERT INTO user_themes (name) VALUES (?)", (name,))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def link_puzzles_to_user_theme(self, theme_id: int, puzzle_ids: List[str]) -> None:
+        if not puzzle_ids:
+            return
+        cursor = self.conn.cursor()
+        data = [(pid, theme_id) for pid in puzzle_ids]
+        cursor.executemany(
+            "INSERT OR IGNORE INTO puzzle_user_themes (puzzle_id, theme_id) VALUES (?, ?)",
+            data,
+        )
+        self.conn.commit()
 
     # ------------------------------------------------------------------
     # Вспомогательное

@@ -171,6 +171,7 @@ class PuzzleFiltersMixin:
             "moves_exact": moves_exact,
             "themes": themes if themes else None,
             "color": self._invert_color(COLOR_RU_TO_EN.get(self.filter_widgets["color"].get().strip())) or None,
+            "user_themes": [self.filter_widgets["user_themes"].get()] if self.filter_widgets["user_themes"].get() else None,
         }
 
     def _invert_color(self, color: Optional[str]) -> Optional[str]:

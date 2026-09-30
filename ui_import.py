@@ -61,9 +61,19 @@ class PuzzleImportMixin:
 
             self.root.after(0, update_ui)
 
+        def status_callback(text: str) -> None:
+            def update_ui():
+                if not progress_win.winfo_exists():
+                    return
+                status_label.config(text=text)
+                self.status_label.config(text=text)
+                progress_win.update_idletasks()
+
+            self.root.after(0, update_ui)
+
         def run_import():
             try:
-                self.db.import_csv(progress_callback=progress_callback)
+                self.db.import_csv(progress_callback=progress_callback, status_callback=status_callback)
                 self.root.after(0, self._on_db_ready)
                 self.root.after(0, lambda: messagebox.showinfo(
                     t("about_title"), t("msg_import_success")

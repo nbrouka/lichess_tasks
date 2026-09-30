@@ -142,6 +142,15 @@ class PuzzleSelectionMixin:
         answers_path = path.replace(".docx", "_ответы.docx")
         self._create_answers_docx(answers_path, topic, puzzles)
 
+        if topic:
+            self._save_topic_to_db(topic)
+
+    def _save_topic_to_db(self, topic: str) -> None:
+        theme_id = self.db.get_or_create_user_theme(topic)
+        puzzle_ids = [p.puzzle_id for p in self.selected_puzzles]
+        self.db.link_puzzles_to_user_theme(theme_id, puzzle_ids)
+        self._refresh_user_themes()
+
     def _create_answers_docx(self, path: str, topic: str, puzzles: list) -> None:
         logger.info("Creating answers DOCX path=%s puzzles=%d", path, len(puzzles))
 

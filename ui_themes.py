@@ -57,6 +57,8 @@ class PuzzleThemesMixin:
             self.themes_listbox.insert(tk.END, display)
         self.status_label.config(text=t("status_db_ready"))
 
+        self._refresh_user_themes()
+
         filtered_categories = []
         filtered_themes_data = {}
         for cat_name, cat_themes in self.themes_data.items():
@@ -76,3 +78,14 @@ class PuzzleThemesMixin:
         else:
             self._category_var.set("")
         self._on_category_selected()
+
+    def _refresh_user_themes(self) -> None:
+        user_themes = self.db.get_user_themes()
+        self.user_themes_cb["values"] = [""] + user_themes
+        self.user_themes_var.set("")
+
+    def _on_user_theme_selected(self, event=None) -> None:
+        if self.user_themes_var.get():
+            self._category_var.set("")
+            self.category_cb.set("")
+            self.themes_listbox.selection_clear(0, tk.END)

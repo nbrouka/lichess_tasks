@@ -194,6 +194,7 @@ UI_TRANSLATIONS = {
         "stats_white": "Ход белых: {white}",
         "stats_black": "Ход черных: {black}",
         "stats_by_moves": "По ходам: {moves}",
+        "user_themes_label": "Пользовательские темы:",
     },
     "en": {
         "app_title": "Lichess Puzzle Viewer",
@@ -213,6 +214,7 @@ UI_TRANSLATIONS = {
         "color_black": "Black to move",
         "category_label": "Category:",
         "themes_label": "Themes (select):",
+        "user_themes_label": "User themes:",
         "apply_btn": "Apply",
         "reset_btn": "Reset",
         "found_label": "Found: {count}",
@@ -258,6 +260,7 @@ UI_TRANSLATIONS = {
         "stats_white": "White to move: {white}",
         "stats_black": "Black to move: {black}",
         "stats_by_moves": "By moves: {moves}",
+        "user_themes_label": "User themes:",
     },
 }
 
@@ -387,6 +390,23 @@ CREATE TABLE IF NOT EXISTS puzzle_themes (
 );
 """
 
+SQL_CREATE_USER_THEMES = """
+CREATE TABLE IF NOT EXISTS user_themes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+"""
+
+SQL_CREATE_USER_PUZZLE_THEMES = """
+CREATE TABLE IF NOT EXISTS puzzle_user_themes (
+    puzzle_id TEXT NOT NULL,
+    theme_id INTEGER NOT NULL,
+    PRIMARY KEY (puzzle_id, theme_id),
+    FOREIGN KEY (puzzle_id) REFERENCES puzzles (PuzzleId),
+    FOREIGN KEY (theme_id) REFERENCES user_themes (id)
+);
+"""
+
 SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_theme ON puzzle_themes(Theme);",
     "CREATE INDEX IF NOT EXISTS idx_rating ON puzzles(Rating);",
@@ -398,4 +418,5 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_color_moves_count ON puzzles(Color, moves_count);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_puzzle ON puzzle_themes(Theme, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_puzzles_color_rating ON puzzles(Color, Rating DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_user_themes_name ON user_themes(name);",
 ]

@@ -135,6 +135,16 @@ class PuzzleApp(
         self.themes_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         themes_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
+        ttk.Label(left, text=t("user_themes_label")).pack(anchor=tk.W, pady=(8, 0))
+        self.user_themes_var = tk.StringVar(value="")
+        self.user_themes_cb = ttk.Combobox(
+            left, textvariable=self.user_themes_var,
+            state="readonly", width=35,
+        )
+        self.user_themes_cb.pack(anchor=tk.W)
+        self.user_themes_cb.bind("<<ComboboxSelected>>", lambda e: self._on_user_theme_selected())
+        self.filter_widgets["user_themes"] = self.user_themes_cb
+
         # Кнопки фильтров
         btn_frame = ttk.Frame(left)
         btn_frame.pack(fill=tk.X, pady=(10, 0))

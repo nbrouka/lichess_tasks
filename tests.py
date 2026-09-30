@@ -219,8 +219,16 @@ class TestFilterCombinations(unittest.TestCase):
         self.assertEqual(self.app.themes_listbox.size(), 3)
 
     def test_empty_categories_removed_after_db_ready(self):
-        self.app._available_theme_ids = {"opening", "middlegame", "endgame"}
-        self.app._on_db_ready()
+        self.app.themes_data = {
+            "Рекомендуемые": {"healthyMix": {"id": "healthyMix", "name": "Healthy mix", "count": "123"}},
+            "Фазы": {
+                "opening": {"id": "opening", "name": "Opening", "count": "321,447"},
+                "middlegame": {"id": "middlegame", "name": "Middlegame", "count": "2,917,156"},
+                "endgame": {"id": "endgame", "name": "Endgame", "count": "3,165,937"},
+            },
+        }
+        with patch.object(self.app.db, "get_all_themes", return_value=["opening", "middlegame", "endgame"]):
+            self.app._on_db_ready()
         self.assertNotIn("Рекомендуемые", self.app.category_cb["values"])
         self.assertIn("Фазы", self.app.category_cb["values"])
 
@@ -510,6 +518,8 @@ class TestDocxExport(unittest.TestCase):
     def setUp(self):
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
+        if os.path.exists("puzzles.db"):
+            os.remove("puzzles.db")
         self.db = PuzzleDatabase(db_path=self.db_path, csv_path=self.csv_path)
         self._write_csv([
             "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
@@ -551,6 +561,8 @@ class TestDocxExport(unittest.TestCase):
         self.db.conn.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
+        if os.path.exists("puzzles.db"):
+            os.remove("puzzles.db")
 
     def _write_csv(self, rows):
         with open(self.csv_path, "w", encoding="utf-8", newline="") as f:
@@ -665,6 +677,63 @@ class TestDocxExport(unittest.TestCase):
             for p in [path, answers_path]:
                 if os.path.exists(p):
                     os.unlink(p)
+
+    def test_topic_saved_to_db_after_export(self):
+        puzzles = self._load_puzzles_from_db(3)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".docx")
+        os.close(fd)
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_docx(path, "Мой пользовательский лист")
+
+            cursor = self.app.db.conn.cursor()
+            cursor.execute("SELECT id, name FROM user_themes WHERE name = ?", ("Мой пользовательский лист",))
+            row = cursor.fetchone()
+            self.assertIsNotNone(row)
+            theme_id = row[0]
+            self.assertEqual(row[1], "Мой пользовательский лист")
+
+            cursor.execute(
+                "SELECT puzzle_id FROM puzzle_user_themes WHERE theme_id = ?",
+                (theme_id,),
+            )
+            linked_ids = [r[0] for r in cursor.fetchall()]
+            expected_ids = [p.puzzle_id for p in puzzles]
+            self.assertEqual(sorted(linked_ids), sorted(expected_ids))
+
+            self.assertEqual(self.app.user_themes_var.get(), "")
+            self.assertIn("Мой пользовательский лист", self.app.user_themes_cb["values"])
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+            answers_path = path.replace(".docx", "_ответы.docx")
+            if os.path.exists(answers_path):
+                os.unlink(answers_path)
+
+    def test_selecting_user_theme_resets_standard_filters(self):
+        self.app._category_var.set("Фазы")
+        self.app.category_cb.set("Фазы")
+        self.app.themes_listbox.selection_set(0)
+        self.app.user_themes_var.set("Моя тема")
+
+        self.app._on_user_theme_selected()
+
+        self.assertEqual(self.app._category_var.get(), "")
+        self.assertEqual(self.app.category_cb.get(), "")
+        self.assertEqual(self.app.themes_listbox.curselection(), ())
+
+    def test_selecting_empty_user_theme_does_not_reset_standard_filters(self):
+        self.app._category_var.set("Фазы")
+        self.app.category_cb.set("Фазы")
+        self.app.themes_listbox.selection_set(0)
+        self.app.user_themes_var.set("")
+
+        self.app._on_user_theme_selected()
+
+        self.assertEqual(self.app._category_var.get(), "Фазы")
+        self.assertEqual(self.app.category_cb.get(), "Фазы")
+        self.assertEqual(self.app.themes_listbox.curselection(), (0,))
 
 
 if __name__ == "__main__":

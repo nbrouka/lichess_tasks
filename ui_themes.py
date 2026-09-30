@@ -35,6 +35,10 @@ class PuzzleThemesMixin:
             pass
 
     def _on_category_selected(self, event=None) -> None:
+        if self.user_themes_var.get():
+            self.user_themes_var.set("")
+            self.user_themes_cb.set("")
+
         category = self._category_var.get()
         cat_themes = self.themes_data.get(category, {})
 
@@ -84,8 +88,19 @@ class PuzzleThemesMixin:
         self.user_themes_cb["values"] = [""] + user_themes
         self.user_themes_var.set("")
 
+    def _on_standard_theme_selected(self, event=None) -> None:
+        if self.themes_listbox.curselection():
+            self.user_themes_var.set("")
+            self.user_themes_cb.set("")
+
     def _on_user_theme_selected(self, event=None) -> None:
         if self.user_themes_var.get():
             self._category_var.set("")
             self.category_cb.set("")
             self.themes_listbox.selection_clear(0, tk.END)
+
+    def _reset_themes_listbox_to_all(self) -> None:
+        self.themes_listbox.delete(0, tk.END)
+        for theme in sorted(getattr(self, "_available_theme_ids", set())):
+            display = THEME_TRANSLATIONS.get(theme, theme)
+            self.themes_listbox.insert(tk.END, display)

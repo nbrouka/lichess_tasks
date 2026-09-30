@@ -35,12 +35,12 @@ class PuzzleApp(
     PuzzleSelectionMixin,
     PuzzleImportMixin,
 ):
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, db_path: str = DB_FILENAME, csv_path: str = DEFAULT_CSV_PATH):
         self.root = root
         self.root.title(t("app_title"))
         self.root.minsize(*WINDOW_MINSIZE)
 
-        self.db = PuzzleDatabase(db_path=DB_FILENAME, csv_path=DEFAULT_CSV_PATH)
+        self.db = PuzzleDatabase(db_path=db_path, csv_path=csv_path)
 
         self.filtered_puzzles: List[Puzzle] = []
         self.current_index: Optional[int] = None

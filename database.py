@@ -273,6 +273,17 @@ class PuzzleDatabase:
                 if theme_sql:
                     conditions.append(theme_sql)
                     params.extend(theme_params)
+            if filters.get("user_themes"):
+                unique_user_themes = [name for name in filters["user_themes"] if name]
+                if unique_user_themes:
+                    placeholders = ",".join(["?"] * len(unique_user_themes))
+                    conditions.append(
+                        f"PuzzleId IN ("
+                        f"SELECT puzzle_id FROM puzzle_user_themes "
+                        f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                        f")"
+                    )
+                    params.extend(unique_user_themes)
 
         where = " AND ".join(conditions)
 

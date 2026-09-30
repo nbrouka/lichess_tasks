@@ -145,6 +145,7 @@ class PuzzleFiltersMixin:
 
     def _bind_events(self) -> None:
         self.themes_listbox.bind("<Double-Button-1>", lambda e: self._apply_filter())
+        self.themes_listbox.bind("<<ListboxSelect>>", lambda e: self._on_standard_theme_selected())
 
     def _get_filter_values(self) -> dict:
         themes = [self.themes_listbox.get(i) for i in self.themes_listbox.curselection()]
@@ -214,6 +215,7 @@ class PuzzleFiltersMixin:
         self._filter_after_id = self.root.after(FILTER_DEBOUNCE_MS, _do_apply)
 
     def _set_filtering_status(self, active: bool) -> None:
+        self._filtering_active = active
         if active:
             self._filtering_dots = 0
             self._update_filtering_dots()
@@ -222,11 +224,12 @@ class PuzzleFiltersMixin:
                 self.root.after_cancel(self._filtering_dots_id)
 
     def _update_filtering_dots(self) -> None:
+        if not getattr(self, "_filtering_active", False):
+            return
         self._filtering_dots = (self._filtering_dots + 1) % 4
         dots = "." * self._filtering_dots
         self.status_label.config(text=f"{t('status_filtering')}{dots}")
-        if self._filtering_dots > 0:
-            self._filtering_dots_id = self.root.after(250, self._update_filtering_dots)
+        self._filtering_dots_id = self.root.after(250, self._update_filtering_dots)
 
     def _on_filter_complete(self, puzzles, count: int) -> None:
         self._set_filtering_status(False)
@@ -285,6 +288,13 @@ class PuzzleFiltersMixin:
             f"{moves}: {cnt}" for moves, cnt in sorted(stats["by_moves"].items())
         )
 
+        # В БД поле Color хранит цвет стороны, которая только что сделала ход.
+        # Поэтому:
+        #   Color = 'b' -> черные только что ходили -> сейчас ход белых
+        #   Color = 'w' -> белые только что ходили -> сейчас ход черных
+        # Без фильтра по цвету показываем статистику как есть.
+        # При фильтре по цвету инвертируем, потому что пользователь выбирает
+        # текущего игрока, а в БД хранится противоположный цвет.
         white = stats["white"]
         black = stats["black"]
         if self._filter_values.get("color"):
@@ -316,6 +326,7 @@ class PuzzleFiltersMixin:
             elif isinstance(widget, ttk.Combobox):
                 widget.set("")
         self.themes_listbox.selection_clear(0, tk.END)
+        self._reset_themes_listbox_to_all()
         self.filtered_puzzles = []
         self.selected_puzzles = []
         for widget in self.selected_inner.winfo_children():

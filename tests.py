@@ -235,7 +235,16 @@ class TestFilterCombinations(unittest.TestCase):
     def test_apply_filter_does_not_raise(self):
         from unittest.mock import patch
 
-        with patch.object(self.app.root, "after", lambda ms, func, *args: func()), \
+        call_count = [0]
+
+        def limited_after(ms, func, *args):
+            call_count[0] += 1
+            if call_count[0] <= 4:
+                return func()
+            return None
+
+        with patch.object(self.app.root, "after", limited_after), \
+             patch.object(self.app.root, "after_cancel", lambda id: None), \
              patch.object(threading, "Thread", lambda **kwargs: type("FakeThread", (), {"start": lambda self: None})()):
             self.app._apply_filter()
 
@@ -428,18 +437,14 @@ class TestDatabaseFilter(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp()
-        cls.db_path = os.path.join(cls.temp_dir, "test.db")
+        cls.db_path = ":memory:"
         cls.csv_path = os.path.join(cls.temp_dir, "test.csv")
 
     def setUp(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
         self.db = PuzzleDatabase(db_path=self.db_path, csv_path=self.csv_path)
 
     def tearDown(self):
         self.db.conn.close()
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
 
     def _write_csv(self, rows):
         with open(self.csv_path, "w", encoding="utf-8", newline="") as f:
@@ -500,26 +505,38 @@ class TestDatabaseFilter(unittest.TestCase):
     def test_get_stats_counts_moves(self):
         self._write_csv([
             "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
-            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
         ])
         self.db.import_csv()
         stats = self.db.get_stats()
         self.assertEqual(stats["by_moves"][1], 1)
         self.assertEqual(stats["by_moves"][2], 1)
 
+    def test_get_stats_counts_user_themes(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5 g1f3,1700,20,95,300,opening,http://example.com,Italian Game,2023-01-03",
+        ])
+        self.db.import_csv()
+        self.db.get_or_create_user_theme("Моя тема")
+        theme_id = self.db.get_or_create_user_theme("Моя тема")
+        self.db.link_puzzles_to_user_theme(theme_id, ["00001", "00003"])
+
+        stats = self.db.get_stats({"user_themes": ["Моя тема"]})
+        self.assertEqual(stats["white"], 1)
+        self.assertEqual(stats["black"], 1)
+        self.assertEqual(stats["by_moves"][1], 2)
+
 
 class TestDocxExport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp()
-        cls.db_path = os.path.join(cls.temp_dir, "test.db")
+        cls.db_path = ":memory:"
         cls.csv_path = os.path.join(cls.temp_dir, "test.csv")
 
     def setUp(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
-        if os.path.exists("puzzles.db"):
-            os.remove("puzzles.db")
         self.db = PuzzleDatabase(db_path=self.db_path, csv_path=self.csv_path)
         self._write_csv([
             "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
@@ -551,7 +568,7 @@ class TestDocxExport(unittest.TestCase):
         self.db.import_csv()
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = PuzzleApp(self.root)
+        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path)
 
     def tearDown(self):
         try:
@@ -559,10 +576,6 @@ class TestDocxExport(unittest.TestCase):
         except Exception:
             self.root.destroy()
         self.db.conn.close()
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
-        if os.path.exists("puzzles.db"):
-            os.remove("puzzles.db")
 
     def _write_csv(self, rows):
         with open(self.csv_path, "w", encoding="utf-8", newline="") as f:

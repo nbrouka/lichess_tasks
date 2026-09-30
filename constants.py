@@ -394,6 +394,7 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_daily_date ON puzzles(DailyDate);",
     "CREATE INDEX IF NOT EXISTS idx_color ON puzzles(Color);",
     "CREATE INDEX IF NOT EXISTS idx_moves_count ON puzzles(moves_count);",
+    "CREATE INDEX IF NOT EXISTS idx_color_moves_count ON puzzles(Color, moves_count);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_puzzle ON puzzle_themes(Theme, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_puzzles_color_rating ON puzzles(Color, Rating DESC);",
 ]

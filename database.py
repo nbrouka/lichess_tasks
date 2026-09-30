@@ -5,10 +5,8 @@
 
 import sqlite3
 import csv
-import os
-import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, Union
 
 from constants import (
     DB_FILENAME, DEFAULT_CSV_PATH, CSV_COLUMNS,
@@ -387,7 +385,8 @@ class PuzzleDatabase:
         moves_exact: Optional[int] = None,
         limit: int = FILTER_DEFAULT_LIMIT,
         offset: int = 0,
-    ) -> List[Puzzle]:
+        return_total: bool = False,
+    ) -> Union[List[Puzzle], tuple[List[Puzzle], int]]:
         where_clause, params = self._build_filter_conditions(
             puzzle_id_contains=puzzle_id_contains,
             rating_min=rating_min,
@@ -404,14 +403,31 @@ class PuzzleDatabase:
             themes=themes,
         )
 
-        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT ? OFFSET ?"
+        if return_total:
+            sql = f"""
+                WITH filtered AS (
+                    SELECT *, COUNT(*) OVER() AS total_count
+                    FROM puzzles
+                    WHERE {where_clause}
+                    ORDER BY Rating DESC
+                )
+                SELECT * FROM filtered
+                LIMIT ? OFFSET ?
+            """
+        else:
+            sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT ? OFFSET ?"
+
         params.extend([limit, offset])
 
         cursor = self.conn.cursor()
         cursor.execute(sql, params)
         rows = cursor.fetchall()
 
-        return [self._row_to_puzzle(row) for row in rows]
+        puzzles = [self._row_to_puzzle(row) for row in rows]
+        if return_total:
+            total = rows[0]["total_count"] if rows else 0
+            return puzzles, total
+        return puzzles
 
     def count_filtered(
         self,

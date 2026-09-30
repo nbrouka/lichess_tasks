@@ -195,8 +195,12 @@ class PuzzleFiltersMixin:
         self.root.update_idletasks()
 
         def run():
-            count = self.db.count_filtered(**self._filter_values)
-            puzzles = self.db.filter_puzzles(**self._filter_values, limit=FILTER_PAGE_SIZE, offset=0)
+            puzzles, count = self.db.filter_puzzles(
+                **self._filter_values,
+                limit=FILTER_PAGE_SIZE,
+                offset=0,
+                return_total=True,
+            )
             self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
 
         self._filter_thread = threading.Thread(target=run, daemon=True)

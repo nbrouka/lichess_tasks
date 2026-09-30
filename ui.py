@@ -7,6 +7,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import threading
 import json
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -20,6 +21,7 @@ from constants import (
     WINDOW_GEOMETRY, WINDOW_MINSIZE,
     FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
     EXCLUDE_THEMES_LISTBOX_HEIGHT,
+    ICON_WINDOWS, ICON_LINUX,
 )
 
 from ui_puzzle_view import PuzzleViewMixin
@@ -40,6 +42,7 @@ class PuzzleApp(
         self.root = root
         self.root.title(t("app_title"))
         self.root.minsize(*WINDOW_MINSIZE)
+        self._set_window_icon()
 
         self.db = PuzzleDatabase(db_path=db_path, csv_path=csv_path)
 
@@ -71,9 +74,21 @@ class PuzzleApp(
         else:
             self.status_label.config(text=t("status_db_not_ready"))
 
-    # ------------------------------------------------------------------
-    # Меню
-    # ------------------------------------------------------------------
+    def _set_window_icon(self) -> None:
+        icon_path = Path(ICON_WINDOWS if os.name == "nt" else ICON_LINUX)
+        if not icon_path.exists():
+            return
+        try:
+            if icon_path.suffix.lower() == ".ico":
+                self.root.iconbitmap(str(icon_path))
+            else:
+                img = Image.open(icon_path)
+                photo = ImageTk.PhotoImage(img)
+                self.root.iconphoto(True, photo)
+                self._selected_photos.append(photo)
+        except Exception:
+            pass
+
     def _build_menu(self) -> None:
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=0)

@@ -102,22 +102,13 @@ PYTHONPATH=. xvfb-run -a python regenerate_test_docx.py
 
 ## Иконка приложения
 
-Приложение поддерживает иконку окна:
+В репозитории уже есть готовые иконки:
+- `icon.ico` — для Windows
+- `icon.png` — для Linux
 
-- Windows: `icon.ico`
-- Linux: `icon.png`
+Иконка сочетает шахматного коня в стиле lichess и символ базы данных.
 
-Если файл иконки находится в папке с приложением, он подтягивается автоматически при старте.
-
-Рекомендуемые размеры:
-- `icon.ico`: 256×256, 128×128, 64×64, 48×48, 32×32, 16×16
-- `icon.png`: 512×512
-
-### Где взять иконку
-
-Можно использовать любую шахматную иконку в формате `.ico` или `.png`. Например:
-- https://icons8.com/icons/set/chess
-- https://www.flaticon.com/search?word=chess
+Если нужно заменить иконку, положите в корень проекта файлы с такими же именами.
 
 ### Сборка с иконкой
 
@@ -136,8 +127,6 @@ pyinstaller --onefile --windowed \
 ```powershell
 .venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." main.py
 ```
-
-При запуске собранного `exe` иконка будет отображаться в заголовке окна и на панели задач.
 
 ## Сборка и установка
 

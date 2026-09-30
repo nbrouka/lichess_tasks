@@ -62,6 +62,7 @@ class PuzzleThemesMixin:
         self.status_label.config(text=t("status_db_ready"))
 
         self._refresh_user_themes()
+        self._refresh_exclude_user_themes()
 
         filtered_categories = []
         filtered_themes_data = {}
@@ -99,8 +100,25 @@ class PuzzleThemesMixin:
             self.category_cb.set("")
             self.themes_listbox.selection_clear(0, tk.END)
 
+    def _on_exclude_user_theme_selected(self, event=None) -> None:
+        if self.exclude_themes_listbox.curselection():
+            self.user_themes_var.set("")
+            self.user_themes_cb.set("")
+
     def _reset_themes_listbox_to_all(self) -> None:
         self.themes_listbox.delete(0, tk.END)
         for theme in sorted(getattr(self, "_available_theme_ids", set())):
             display = THEME_TRANSLATIONS.get(theme, theme)
             self.themes_listbox.insert(tk.END, display)
+
+    def _refresh_exclude_user_themes(self) -> None:
+        user_themes = self.db.get_user_themes()
+        self.exclude_themes_listbox.delete(0, tk.END)
+        for theme in user_themes:
+            self.exclude_themes_listbox.insert(tk.END, theme)
+
+    def _exclude_all_user_themes(self) -> None:
+        self.exclude_themes_listbox.selection_set(0, tk.END)
+
+    def _exclude_none_user_themes(self) -> None:
+        self.exclude_themes_listbox.selection_clear(0, tk.END)

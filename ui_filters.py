@@ -146,11 +146,14 @@ class PuzzleFiltersMixin:
     def _bind_events(self) -> None:
         self.themes_listbox.bind("<Double-Button-1>", lambda e: self._apply_filter())
         self.themes_listbox.bind("<<ListboxSelect>>", lambda e: self._on_standard_theme_selected())
+        self.exclude_themes_listbox.bind("<<ListboxSelect>>", lambda e: self._on_exclude_user_theme_selected())
 
     def _get_filter_values(self) -> dict:
         themes = [self.themes_listbox.get(i) for i in self.themes_listbox.curselection()]
         themes = [t.split(" (")[0] for t in themes]
         themes = [THEME_RU_TO_EN.get(t, t) for t in themes]
+
+        exclude_themes = [self.exclude_themes_listbox.get(i) for i in self.exclude_themes_listbox.curselection()]
 
         moves_exact = self.filter_widgets.get("moves_exact")
         moves_enabled = self.filter_widgets.get("moves_exact_enabled")
@@ -173,6 +176,7 @@ class PuzzleFiltersMixin:
             "themes": themes if themes else None,
             "color": self._invert_color(COLOR_RU_TO_EN.get(self.filter_widgets["color"].get().strip())) or None,
             "user_themes": [self.filter_widgets["user_themes"].get()] if self.filter_widgets["user_themes"].get() else None,
+            "exclude_user_themes": exclude_themes if exclude_themes else None,
         }
 
     def _invert_color(self, color: Optional[str]) -> Optional[str]:
@@ -326,6 +330,7 @@ class PuzzleFiltersMixin:
             elif isinstance(widget, ttk.Combobox):
                 widget.set("")
         self.themes_listbox.selection_clear(0, tk.END)
+        self.exclude_themes_listbox.selection_clear(0, tk.END)
         self._reset_themes_listbox_to_all()
         self.filtered_puzzles = []
         self.selected_puzzles = []

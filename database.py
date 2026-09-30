@@ -284,6 +284,17 @@ class PuzzleDatabase:
                         f")"
                     )
                     params.extend(unique_user_themes)
+            if filters.get("exclude_user_themes"):
+                unique_exclude = [name for name in filters["exclude_user_themes"] if name]
+                if unique_exclude:
+                    placeholders = ",".join(["?"] * len(unique_exclude))
+                    conditions.append(
+                        f"PuzzleId NOT IN ("
+                        f"SELECT puzzle_id FROM puzzle_user_themes "
+                        f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                        f")"
+                    )
+                    params.extend(unique_exclude)
 
         where = " AND ".join(conditions)
 
@@ -345,6 +356,7 @@ class PuzzleDatabase:
         moves_exact: Optional[int] = None,
         themes: Optional[List[str]] = None,
         user_themes: Optional[List[str]] = None,
+        exclude_user_themes: Optional[List[str]] = None,
     ) -> tuple[str, List[Any]]:
         conditions = ["1=1"]
         params: List[Any] = []
@@ -411,6 +423,18 @@ class PuzzleDatabase:
                 )
                 params.extend(unique_user_themes)
 
+        if exclude_user_themes:
+            unique_exclude = [name for name in exclude_user_themes if name]
+            if unique_exclude:
+                placeholders = ",".join(["?"] * len(unique_exclude))
+                where_clause += (
+                    f" AND PuzzleId NOT IN ("
+                    f"SELECT puzzle_id FROM puzzle_user_themes "
+                    f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                    f")"
+                )
+                params.extend(unique_exclude)
+
         return where_clause, params
 
     def _has_moves_count_column(self) -> bool:
@@ -459,6 +483,7 @@ class PuzzleDatabase:
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
         user_themes: Optional[List[str]] = None,
+        exclude_user_themes: Optional[List[str]] = None,
         limit: int = FILTER_DEFAULT_LIMIT,
         offset: int = 0,
         return_total: bool = False,
@@ -478,6 +503,7 @@ class PuzzleDatabase:
             daily_date_to=daily_date_to,
             moves_exact=moves_exact,
             user_themes=user_themes,
+            exclude_user_themes=exclude_user_themes,
         )
         cached = self._get_cached(cache_key, f"filter:{offset}:{limit}")
         if cached is not None:
@@ -499,6 +525,7 @@ class PuzzleDatabase:
             moves_exact=moves_exact,
             themes=themes,
             user_themes=user_themes,
+            exclude_user_themes=exclude_user_themes,
         )
 
         if return_total:
@@ -545,6 +572,7 @@ class PuzzleDatabase:
         daily_date_to: Optional[str] = None,
         moves_exact: Optional[int] = None,
         user_themes: Optional[List[str]] = None,
+        exclude_user_themes: Optional[List[str]] = None,
     ) -> int:
         where_clause, params = self._build_filter_conditions(
             puzzle_id_contains=puzzle_id_contains,
@@ -561,6 +589,7 @@ class PuzzleDatabase:
             moves_exact=moves_exact,
             themes=themes,
             user_themes=user_themes,
+            exclude_user_themes=exclude_user_themes,
         )
 
         sql = f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}"

@@ -514,7 +514,7 @@ class TestDatabaseFilter(unittest.TestCase):
 
     def test_get_stats_counts_user_themes(self):
         self._write_csv([
-            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5 g1f3,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
             "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
             "00003,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5 g1f3,1700,20,95,300,opening,http://example.com,Italian Game,2023-01-03",
         ])
@@ -527,6 +527,21 @@ class TestDatabaseFilter(unittest.TestCase):
         self.assertEqual(stats["white"], 1)
         self.assertEqual(stats["black"], 1)
         self.assertEqual(stats["by_moves"][1], 2)
+
+    def test_filter_exclude_user_themes(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5 g1f3,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5 g1f3,1700,20,95,300,opening,http://example.com,Italian Game,2023-01-03",
+        ])
+        self.db.import_csv()
+        self.db.get_or_create_user_theme("Моя тема")
+        theme_id = self.db.get_or_create_user_theme("Моя тема")
+        self.db.link_puzzles_to_user_theme(theme_id, ["00001", "00003"])
+
+        puzzles = self.db.filter_puzzles(exclude_user_themes=["Моя тема"], limit=10)
+        self.assertEqual(len(puzzles), 1)
+        self.assertEqual(puzzles[0].puzzle_id, "00002")
 
 
 class TestDocxExport(unittest.TestCase):
@@ -747,6 +762,31 @@ class TestDocxExport(unittest.TestCase):
         self.assertEqual(self.app._category_var.get(), "Фазы")
         self.assertEqual(self.app.category_cb.get(), "Фазы")
         self.assertEqual(self.app.themes_listbox.curselection(), (0,))
+
+    def test_reset_filters_clears_exclude_user_themes(self):
+        self.app.exclude_themes_listbox.insert(tk.END, "Theme A")
+        self.app.exclude_themes_listbox.insert(tk.END, "Theme B")
+        self.app.exclude_themes_listbox.selection_set(0, 1)
+
+        self.app._reset_filters()
+
+        self.assertEqual(self.app.exclude_themes_listbox.curselection(), ())
+
+    def test_selecting_exclude_user_theme_resets_standard_filters(self):
+        self.app._category_var.set("Фазы")
+        self.app.category_cb.set("Фазы")
+        self.app.themes_listbox.selection_set(0)
+        self.app.exclude_themes_listbox.insert(tk.END, "Theme A")
+        self.app.exclude_themes_listbox.selection_set(0)
+        self.app.exclude_themes_listbox.update_idletasks()
+        self.assertEqual(self.app.exclude_themes_listbox.curselection(), (0,))
+
+        self.app._on_exclude_user_theme_selected()
+
+        self.assertEqual(self.app._category_var.get(), "Фазы")
+        self.assertEqual(self.app.category_cb.get(), "Фазы")
+        self.assertEqual(self.app.themes_listbox.curselection(), (0,))
+        self.assertEqual(self.app.user_themes_var.get(), "")
 
 
 if __name__ == "__main__":

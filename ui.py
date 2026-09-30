@@ -19,6 +19,7 @@ from constants import (
     UI_TRANSLATIONS, LANG, t, COLOR_RU_TO_EN,
     WINDOW_GEOMETRY, WINDOW_MINSIZE,
     FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
+    EXCLUDE_THEMES_LISTBOX_HEIGHT,
 )
 
 from ui_puzzle_view import PuzzleViewMixin
@@ -144,6 +145,25 @@ class PuzzleApp(
         self.user_themes_cb.pack(anchor=tk.W)
         self.user_themes_cb.bind("<<ComboboxSelected>>", lambda e: self._on_user_theme_selected())
         self.filter_widgets["user_themes"] = self.user_themes_cb
+
+        ttk.Label(left, text="Исключить пользовательские темы:").pack(anchor=tk.W, pady=(8, 0))
+        exclude_frame = ttk.Frame(left)
+        exclude_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
+        self.exclude_themes_listbox = tk.Listbox(
+            exclude_frame, selectmode=tk.EXTENDED, height=EXCLUDE_THEMES_LISTBOX_HEIGHT, exportselection=False,
+        )
+        exclude_scroll = ttk.Scrollbar(exclude_frame, orient=tk.VERTICAL, command=self.exclude_themes_listbox.yview)
+        self.exclude_themes_listbox.configure(yscrollcommand=exclude_scroll.set)
+        self.exclude_themes_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        exclude_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        exclude_btn_frame = ttk.Frame(left)
+        exclude_btn_frame.pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(exclude_btn_frame, text="Выбрать все", command=self._exclude_all_user_themes).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 2)
+        )
+        ttk.Button(exclude_btn_frame, text="Снять все", command=self._exclude_none_user_themes).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(2, 0)
+        )
 
         # Кнопки фильтров
         btn_frame = ttk.Frame(left)

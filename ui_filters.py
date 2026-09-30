@@ -9,7 +9,7 @@ from typing import Optional
 
 from constants import (
     THEME_RU_TO_EN, COLOR_RU_TO_EN, t,
-    FILTER_PAGE_SIZE,
+    FILTER_PAGE_SIZE, FILTER_DEBOUNCE_MS,
 )
 
 
@@ -189,24 +189,47 @@ class PuzzleFiltersMixin:
         if getattr(self, "_filter_thread", None) and self._filter_thread.is_alive():
             return
 
-        self._filter_values = self._get_filter_values()
-        self._filter_offset = 0
-        self.status_label.config(text=t("status_filtering"))
-        self.root.update_idletasks()
+        if getattr(self, "_filter_after_id", None):
+            self.root.after_cancel(self._filter_after_id)
 
-        def run():
-            puzzles, count = self.db.filter_puzzles(
-                **self._filter_values,
-                limit=FILTER_PAGE_SIZE,
-                offset=0,
-                return_total=True,
-            )
-            self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
+        def _do_apply():
+            self._filter_values = self._get_filter_values()
+            self._filter_offset = 0
+            self._set_filtering_status(True)
+            self.root.update_idletasks()
 
-        self._filter_thread = threading.Thread(target=run, daemon=True)
-        self._filter_thread.start()
+            def run():
+                puzzles, count = self.db.filter_puzzles(
+                    **self._filter_values,
+                    limit=FILTER_PAGE_SIZE,
+                    offset=0,
+                    return_total=True,
+                )
+                self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
+
+            self._filter_thread = threading.Thread(target=run, daemon=True)
+            self._filter_thread.start()
+
+        self._filter_after_id = self.root.after(FILTER_DEBOUNCE_MS, _do_apply)
+
+    def _set_filtering_status(self, active: bool) -> None:
+        if active:
+            self._filtering_dots = 0
+            self._update_filtering_dots()
+        else:
+            if getattr(self, "_filtering_dots_id", None):
+                self.root.after_cancel(self._filtering_dots_id)
+
+    def _update_filtering_dots(self) -> None:
+        self._filtering_dots = (self._filtering_dots + 1) % 4
+        dots = "." * self._filtering_dots
+        self.status_label.config(text=f"{t('status_filtering')}{dots}")
+        if self._filtering_dots > 0:
+            self._filtering_dots_id = self.root.after(250, self._update_filtering_dots)
 
     def _on_filter_complete(self, puzzles, count: int) -> None:
+        self._set_filtering_status(False)
+
         self.filtered_puzzles = puzzles
         self._filter_total = count
         self._filter_offset = len(puzzles)

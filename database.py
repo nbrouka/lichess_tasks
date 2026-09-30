@@ -5,8 +5,11 @@
 
 import sqlite3
 import csv
+import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable, Union
+from hashlib import md5
+from hashlib import md5
 
 from constants import (
     DB_FILENAME, DEFAULT_CSV_PATH, CSV_COLUMNS,
@@ -82,6 +85,10 @@ class PuzzleDatabase:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._create_schema()
+        self._filter_cache: Dict[str, tuple[float, Any]] = {}
+        self._stats_cache: Dict[str, tuple[float, Any]] = {}
+        self._cache_ttl = 60.0
+        self._filter_cache: Dict[str, tuple[float, Any]] = {}
 
     # ------------------------------------------------------------------
     # Схема
@@ -203,6 +210,7 @@ class PuzzleDatabase:
 
         self.conn.commit()
         self.create_indexes()
+        self._invalidate_cache()
 
         if progress_callback:
             progress_callback(i)
@@ -225,6 +233,11 @@ class PuzzleDatabase:
         return [r[0] for r in cursor.fetchall()]
 
     def get_stats(self, filters: Optional[dict] = None) -> dict:
+        cache_key = self._build_cache_key(**(filters or {}))
+        cached = self._get_cached(cache_key, "stats")
+        if cached is not None:
+            return cached
+
         cursor = self.conn.cursor()
         stats = {
             "white": 0,
@@ -273,6 +286,7 @@ class PuzzleDatabase:
             moves_count = row["moves_count"] or 0
             stats["by_moves"][moves_count] = stats["by_moves"].get(moves_count, 0) + (row["cnt"] or 0)
 
+        self._set_cached(cache_key, "stats", stats)
         return stats
 
     # ------------------------------------------------------------------
@@ -368,6 +382,31 @@ class PuzzleDatabase:
         cursor.execute("PRAGMA table_info(puzzles)")
         return any(row[1] == "moves_count" for row in cursor.fetchall())
 
+    def _build_cache_key(self, **kwargs) -> str:
+        parts = []
+        for key in sorted(kwargs):
+            value = kwargs[key]
+            if isinstance(value, list):
+                value = tuple(sorted(value))
+            parts.append(f"{key}={value}")
+        return md5("|".join(parts).encode()).hexdigest()
+
+    def _get_cached(self, cache_key: str, sub_key: str):
+        entry = self._filter_cache.get(f"{cache_key}:{sub_key}")
+        if entry:
+            ts, value = entry
+            if time.time() - ts < self._cache_ttl:
+                return value
+            self._filter_cache.pop(f"{cache_key}:{sub_key}", None)
+        return None
+
+    def _set_cached(self, cache_key: str, sub_key: str, value: Any) -> None:
+        self._filter_cache[f"{cache_key}:{sub_key}"] = (time.time(), value)
+
+    def _invalidate_cache(self) -> None:
+        self._filter_cache.clear()
+        self._stats_cache.clear()
+
     def filter_puzzles(
         self,
         puzzle_id_contains: str = "",
@@ -387,6 +426,26 @@ class PuzzleDatabase:
         offset: int = 0,
         return_total: bool = False,
     ) -> Union[List[Puzzle], tuple[List[Puzzle], int]]:
+        cache_key = self._build_cache_key(
+            puzzle_id_contains=puzzle_id_contains,
+            rating_min=rating_min,
+            rating_max=rating_max,
+            popularity_min=popularity_min,
+            popularity_max=popularity_max,
+            nb_plays_min=nb_plays_min,
+            nb_plays_max=nb_plays_max,
+            themes=themes,
+            opening_contains=opening_contains,
+            color=color,
+            daily_date_from=daily_date_from,
+            daily_date_to=daily_date_to,
+            moves_exact=moves_exact,
+        )
+        cached = self._get_cached(cache_key, f"filter:{offset}:{limit}")
+        if cached is not None:
+            puzzles, total = cached
+            return (puzzles, total) if return_total else puzzles
+
         where_clause, params = self._build_filter_conditions(
             puzzle_id_contains=puzzle_id_contains,
             rating_min=rating_min,
@@ -426,7 +485,9 @@ class PuzzleDatabase:
         puzzles = [self._row_to_puzzle(row) for row in rows]
         if return_total:
             total = rows[0]["total_count"] if rows else 0
+            self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
             return puzzles, total
+        self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, 0))
         return puzzles
 
     def count_filtered(

@@ -373,7 +373,8 @@ CREATE TABLE IF NOT EXISTS puzzles (
     GameUrl TEXT,
     OpeningTags TEXT,
     DailyDate TEXT,
-    Color TEXT
+    Color TEXT,
+    moves_count INTEGER GENERATED ALWAYS AS ((LENGTH(Moves) - LENGTH(REPLACE(Moves, ' ', '')) + 1) / 2) STORED
 );
 """
 
@@ -392,6 +393,7 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_nb_plays ON puzzles(NbPlays);",
     "CREATE INDEX IF NOT EXISTS idx_daily_date ON puzzles(DailyDate);",
     "CREATE INDEX IF NOT EXISTS idx_color ON puzzles(Color);",
+    "CREATE INDEX IF NOT EXISTS idx_moves_count ON puzzles(moves_count);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_puzzle ON puzzle_themes(Theme, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_puzzles_color_rating ON puzzles(Color, Rating DESC);",
 ]

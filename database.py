@@ -242,9 +242,8 @@ class PuzzleDatabase:
                 conditions.append("puzzles.Color = ?")
                 params.append(filters["color"])
             if filters.get("moves_exact") is not None:
-                conditions.append(
-                    "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2 = ?"
-                )
+                moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
+                conditions.append(f"{moves_expr} = ?")
                 params.append(filters["moves_exact"])
             if filters.get("themes"):
                 theme_sql, theme_params = self._build_theme_condition(filters["themes"])
@@ -254,12 +253,13 @@ class PuzzleDatabase:
 
         where = " AND ".join(conditions)
 
+        moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
         cursor.execute(
             f"""
             SELECT
                 SUM(CASE WHEN puzzles.Color = 'w' THEN 1 ELSE 0 END) AS white_count,
                 SUM(CASE WHEN puzzles.Color = 'b' THEN 1 ELSE 0 END) AS black_count,
-                (LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2 AS moves_count,
+                {moves_expr} AS moves_count,
                 COUNT(*) AS cnt
             FROM puzzles
             WHERE {where}
@@ -347,19 +347,28 @@ class PuzzleDatabase:
             conditions.append("DailyDate <= ?")
             params.append(daily_date_to)
         if moves_exact is not None:
-            conditions.append(
-                "(LENGTH(Moves) - LENGTH(REPLACE(Moves, ' ', '')) + 1) / 2 = ?"
-            )
+            if self._has_moves_count_column():
+                conditions.append("moves_count = ?")
+            else:
+                conditions.append(
+                    "(LENGTH(Moves) - LENGTH(REPLACE(Moves, ' ', '')) + 1) / 2 = ?"
+                )
             params.append(moves_exact)
 
         where_clause = " AND ".join(conditions)
 
         if themes:
-            theme_sql, theme_params = self._build_theme_condition(themes)
+            unique_themes = list(dict.fromkeys(themes))
+            theme_sql, theme_params = self._build_theme_condition(unique_themes)
             where_clause += f" AND {theme_sql}"
             params.extend(theme_params)
 
         return where_clause, params
+
+    def _has_moves_count_column(self) -> bool:
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA table_info(puzzles)")
+        return any(row[1] == "moves_count" for row in cursor.fetchall())
 
     def filter_puzzles(
         self,

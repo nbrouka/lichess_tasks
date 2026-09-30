@@ -186,6 +186,9 @@ class PuzzleFiltersMixin:
         return None
 
     def _apply_filter(self) -> None:
+        if getattr(self, "_filter_thread", None) and self._filter_thread.is_alive():
+            return
+
         self._filter_values = self._get_filter_values()
         self._filter_offset = 0
         self.status_label.config(text=t("status_filtering"))
@@ -196,7 +199,8 @@ class PuzzleFiltersMixin:
             puzzles = self.db.filter_puzzles(**self._filter_values, limit=FILTER_PAGE_SIZE, offset=0)
             self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
 
-        threading.Thread(target=run, daemon=True).start()
+        self._filter_thread = threading.Thread(target=run, daemon=True)
+        self._filter_thread.start()
 
     def _on_filter_complete(self, puzzles, count: int) -> None:
         self.filtered_puzzles = puzzles
@@ -207,14 +211,17 @@ class PuzzleFiltersMixin:
         if puzzles:
             self._show_puzzle(0)
             self.status_label.config(text=t("status_loaded", count=len(puzzles), total=count))
+            self._update_stats()
         else:
             self._clear_display()
             self.status_label.config(text=t("status_not_found"))
-        self._update_stats()
 
     def _load_more_puzzles(self) -> None:
         if not self._filter_values:
             return
+        if getattr(self, "_load_more_thread", None) and self._load_more_thread.is_alive():
+            return
+
         self.status_label.config(text=t("status_loading"))
         self.root.update_idletasks()
 
@@ -226,7 +233,8 @@ class PuzzleFiltersMixin:
             )
             self.root.after(0, lambda: self._on_more_loaded(new_puzzles))
 
-        threading.Thread(target=run, daemon=True).start()
+        self._load_more_thread = threading.Thread(target=run, daemon=True)
+        self._load_more_thread.start()
 
     def _on_more_loaded(self, new_puzzles) -> None:
         if not new_puzzles:

@@ -157,7 +157,7 @@ class PuzzleDocxExporter:
                     p.paragraph_format.space_before = Pt(2)
                     p.paragraph_format.space_after = Pt(4)
                     p.paragraph_format.line_spacing = Pt(6)
-                    color_text = "Ход белых" if puzzle.color == "w" else "Ход черных"
+                    color_text = "Ход белых" if puzzle.color == "b" else "Ход черных"
                     p.add_run(f"№{global_idx}. {color_text}")
 
             logger.info("Saving document path=%s", path)

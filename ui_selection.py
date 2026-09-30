@@ -95,10 +95,12 @@ class PuzzleSelectionMixin:
         path_var = tk.StringVar()
 
         def choose_path():
+            topic = topic_entry.get().strip()
+            default_name = f"{topic}.docx" if topic else "puzzles.docx"
             path = filedialog.asksaveasfilename(
                 defaultextension=".docx",
                 filetypes=[("DOCX files", "*.docx")],
-                initialfile="puzzles.docx",
+                initialfile=default_name,
                 parent=dialog,
             )
             if path:
@@ -123,6 +125,7 @@ class PuzzleSelectionMixin:
                 logger.info("DOCX generated successfully path=%s", path)
                 messagebox.showinfo("Готово", f"Файл сохранён: {path}", parent=dialog)
                 dialog.destroy()
+                self._clear_selection()
             except Exception as exc:
                 logger.exception("DOCX generation failed path=%s error=%s", path, exc)
                 messagebox.showerror("Ошибка", str(exc), parent=dialog)
@@ -130,5 +133,78 @@ class PuzzleSelectionMixin:
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
 
     def _create_sheets_docx(self, path: str, topic: str) -> None:
-        exporter = PuzzleDocxExporter(self.selected_puzzles, topic)
+        puzzles = list(self.selected_puzzles)
+        exporter = PuzzleDocxExporter(puzzles, topic)
         exporter.export(path)
+
+        answers_path = path.replace(".docx", "_ответы.docx")
+        self._create_answers_docx(answers_path, topic, puzzles)
+
+    def _create_answers_docx(self, path: str, topic: str, puzzles: list) -> None:
+        from docx import Document
+        from docx.shared import Cm, Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        logger.info("Creating answers DOCX path=%s puzzles=%d", path, len(puzzles))
+
+        doc = Document()
+        section = doc.sections[0]
+        section.top_margin = Cm(1.0)
+        section.bottom_margin = Cm(1.0)
+        section.left_margin = Cm(1.0)
+        section.right_margin = Cm(1.0)
+
+        doc.add_paragraph(f"Тема: {topic}")
+
+        for idx, puzzle in enumerate(puzzles, 1):
+            actual_color = "Ход белых" if puzzle.color == "b" else "Ход черных"
+            moves = puzzle.solution.split()
+            if not moves:
+                formatted_solution = ""
+            else:
+                if actual_color == "Ход черных":
+                    parts = []
+                    move_number = 1
+                    i = 0
+                    while i < len(moves):
+                        if i == 0:
+                            parts.append(f"{move_number}. ... {moves[i]}")
+                            i += 1
+                            move_number += 1
+                        else:
+                            if i + 1 < len(moves):
+                                parts.append(f"{move_number}. {moves[i]} {moves[i+1]}")
+                                i += 2
+                                move_number += 1
+                            else:
+                                parts.append(f"{move_number}. {moves[i]}")
+                                i += 1
+                                move_number += 1
+                    formatted_solution = " ".join(parts)
+                else:
+                    parts = []
+                    i = 0
+                    move_number = 1
+                    while i < len(moves):
+                        if i + 1 < len(moves):
+                            parts.append(f"{move_number}. {moves[i]} {moves[i+1]}")
+                            i += 2
+                            move_number += 1
+                        else:
+                            parts.append(f"{move_number}. {moves[i]}")
+                            i += 1
+                            move_number += 1
+                    formatted_solution = " ".join(parts)
+            p = doc.add_paragraph()
+            p.paragraph_format.space_after = Pt(6)
+            p.add_run(f"№{idx}. {actual_color}: {formatted_solution}")
+
+        doc.save(path)
+
+    def _clear_selection(self) -> None:
+        self.selected_puzzles.clear()
+        for widget in self.selected_inner.winfo_children():
+            widget.destroy()
+        self.selected_inner.update_idletasks()
+        self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
+        self._update_selected_title()

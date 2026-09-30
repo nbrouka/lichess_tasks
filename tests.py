@@ -603,7 +603,7 @@ class TestDocxExport(unittest.TestCase):
             self.assertEqual(len(captions), 12)
             for idx, caption in enumerate(captions, 1):
                 self.assertIn(f"№{idx}.", caption)
-                expected = "Ход белых" if puzzles[idx - 1].color == "w" else "Ход черных"
+                expected = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
                 self.assertIn(expected, caption)
         finally:
             if os.path.exists(path):
@@ -635,11 +635,36 @@ class TestDocxExport(unittest.TestCase):
             self.assertEqual(len(captions), 25)
             for idx, caption in enumerate(captions, 1):
                 self.assertIn(f"№{idx}.", caption)
-                expected = "Ход белых" if puzzles[idx - 1].color == "w" else "Ход черных"
+                expected = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
                 self.assertIn(expected, caption)
         finally:
             if os.path.exists(path):
                 os.unlink(path)
+
+    def test_answers_docx_has_all_solutions(self):
+        puzzles = self._load_puzzles_from_db(12)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".docx")
+        os.close(fd)
+        answers_path = path.replace(".docx", "_ответы.docx")
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_docx(path, "Test Topic")
+
+            self.assertTrue(os.path.exists(answers_path))
+            doc = Document(answers_path)
+            paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            self.assertEqual(len(paragraphs), 13)
+            for idx, paragraph in enumerate(paragraphs[1:], 1):
+                self.assertIn(f"№{idx}.", paragraph)
+                expected_color = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
+                self.assertIn(expected_color, paragraph)
+                for move in puzzles[idx - 1].solution.split():
+                    self.assertIn(move, paragraph)
+        finally:
+            for p in [path, answers_path]:
+                if os.path.exists(p):
+                    os.unlink(p)
 
 
 if __name__ == "__main__":

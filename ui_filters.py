@@ -173,6 +173,11 @@ class PuzzleFiltersMixin:
         }
 
     def _invert_color(self, color: Optional[str]) -> Optional[str]:
+        """Inverts the selected color because the stored `Color` field in the
+        database represents the *opponent's* color, i.e. the side that just moved
+        and left the puzzle position.  Selecting "Ход белых" in the UI means
+        white is to move, so we must filter by `Color = 'b'` (black just moved),
+        and vice versa."""
         if color == "w":
             return "b"
         if color == "b":

@@ -37,7 +37,6 @@ class PuzzleApp(
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(t("app_title"))
-        self.root.geometry(WINDOW_GEOMETRY)
         self.root.minsize(*WINDOW_MINSIZE)
 
         self.db = PuzzleDatabase(db_path=DB_FILENAME, csv_path=DEFAULT_CSV_PATH)

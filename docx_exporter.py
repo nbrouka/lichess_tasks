@@ -44,6 +44,12 @@ logger = logging.getLogger(__name__)
 
 
 def _set_cell_border(cell, **kwargs: Any) -> None:
+    """
+    Устанавливает границы ячейки таблицы через прямой доступ к XML.
+
+    python-docx не предоставляет высокоуровневого API для границ,
+    поэтому приходится работать с low-level OXML.
+    """
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
     tcBorders = OxmlElement('w:tcBorders')
@@ -61,6 +67,12 @@ def _set_cell_border(cell, **kwargs: Any) -> None:
 
 
 def _set_row_height(row, height_twips: int) -> None:
+    """
+    Устанавливает минимальную высоту строки таблицы.
+
+    Twips - единица измерения в Word (1 twip = 1/20 пункта = 1/1440 дюйма).
+    atLeast означает, что строка может быть выше, если содержимое не помещается.
+    """
     tr = row._tr
     trPr = tr.get_or_add_trPr()
     trHeight = OxmlElement('w:trHeight')
@@ -70,6 +82,11 @@ def _set_row_height(row, height_twips: int) -> None:
 
 
 def _set_cell_margins(cell, top: Optional[int] = None, bottom: Optional[int] = None, left: Optional[int] = None, right: Optional[int] = None) -> None:
+    """
+    Устанавливает внутренние отступы ячейки таблицы.
+
+    DXA (twips) - единица измерения отступов в Word.
+    """
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
     tcMar = OxmlElement('w:tcMar')

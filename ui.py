@@ -82,6 +82,12 @@ class PuzzleApp(
     # Меню
     # ------------------------------------------------------------------
     def _set_window_icon(self) -> None:
+        """
+        Устанавливает иконку окна приложения.
+
+        На Windows использует .ico, на Linux - .png через iconphoto.
+        Файлы иконок должны лежать в корне проекта.
+        """
         icon_path = Path(ICON_WINDOWS if os.name == "nt" else ICON_LINUX)
         if not icon_path.exists():
             return
@@ -115,6 +121,13 @@ class PuzzleApp(
     # Layout
     # ------------------------------------------------------------------
     def _build_layout(self) -> None:
+        """
+        Строит основной layout приложения.
+
+        Левая панель: фильтры.
+        Центр: доска, описание задачи, навигация.
+        Правая панель: выбранные задачи.
+        """
         main = ttk.Frame(self.root)
         main.pack(fill=tk.BOTH, expand=True)
 

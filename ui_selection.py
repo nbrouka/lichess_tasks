@@ -27,6 +27,13 @@ if not logger.handlers:
 
 class PuzzleSelectionMixin:
     def _add_to_selected(self) -> None:
+        """
+        Добавляет текущую задачу в панель выбранных.
+
+        - Не добавляет дубликаты по FEN.
+        - Создаёт миниатюру доски и кнопку удаления.
+        - Обновляет scrollregion канваса, чтобы появилась прокрутка.
+        """
         if self.current_index is None or not self.filtered_puzzles:
             return
         puzzle = self.filtered_puzzles[self.current_index]
@@ -63,21 +70,24 @@ class PuzzleSelectionMixin:
         self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
         self._update_selected_title()
 
-    def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
-        if puzzle in self.selected_puzzles:
-            self.selected_puzzles.remove(puzzle)
-        wrapper.destroy()
-        self.selected_inner.update_idletasks()
-        self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
-        self._update_selected_title()
-
     def _update_selected_title(self) -> None:
         self.selected_title_label.config(text=f"{t('selected_title')} ({len(self.selected_puzzles)})")
 
     def _on_selected_canvas_resize(self, event: tk.Event) -> None:
+        """
+        Обновляет ширину внутреннего окна при изменении размера канваса.
+
+        Нужно, чтобы скроллбар работал корректно при изменении размера окна.
+        """
         self.selected_canvas.itemconfig(self._selected_window_id, width=event.width)
 
     def _create_sheets_dialog(self) -> None:
+        """
+        Открывает диалог экспорта выбранных задач в DOCX.
+
+        Пользователь вводит тему и выбирает путь для сохранения.
+        После экспорта тема автоматически сохраняется в пользовательские темы БД.
+        """
         logger.info("Open DOCX export dialog, selected puzzles count=%d", len(self.selected_puzzles))
         if not self.selected_puzzles:
             messagebox.showinfo(t("about_title"), t("msg_no_selected_puzzles"))
@@ -134,7 +144,31 @@ class PuzzleSelectionMixin:
 
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
 
+    def _on_selected_canvas_resize(self, event: tk.Event) -> None:
+        """
+        Обновляет ширину внутреннего окна при изменении размера канваса.
+
+        Нужно, чтобы скроллбар работал корректно при изменении размера окна.
+        """
+        self.selected_canvas.itemconfig(self._selected_window_id, width=event.width)
+
+    def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
+        """
+        Удаляет задачу из выбранных и разрушает соответствующий виджет.
+        """
+        if puzzle in self.selected_puzzles:
+            self.selected_puzzles.remove(puzzle)
+        wrapper.destroy()
+        self.selected_inner.update_idletasks()
+        self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
+        self._update_selected_title()
+
     def _create_sheets_docx(self, path: str, topic: str) -> None:
+        """
+        Создаёт DOCX с задачами и отдельный DOCX с ответами.
+
+        Также сохраняет тему в пользовательские темы БД, если она указана.
+        """
         puzzles = list(self.selected_puzzles)
         exporter = PuzzleDocxExporter(puzzles, topic)
         exporter.export(path)
@@ -145,14 +179,12 @@ class PuzzleSelectionMixin:
         if topic:
             self._save_topic_to_db(topic)
 
-    def _save_topic_to_db(self, topic: str) -> None:
-        theme_id = self.db.get_or_create_user_theme(topic)
-        puzzle_ids = [p.puzzle_id for p in self.selected_puzzles]
-        self.db.link_puzzles_to_user_theme(theme_id, puzzle_ids)
-        self._refresh_user_themes()
-        self._refresh_exclude_user_themes()
-
     def _create_answers_docx(self, path: str, topic: str, puzzles: list) -> None:
+        """
+        Создаёт DOCX с ответами для всех задач.
+
+        В файле указывается номер задачи, цвет хода и форматированное решение.
+        """
         logger.info("Creating answers DOCX path=%s puzzles=%d", path, len(puzzles))
 
         doc = Document()
@@ -173,7 +205,22 @@ class PuzzleSelectionMixin:
 
         doc.save(path)
 
+    def _save_topic_to_db(self, topic: str) -> None:
+        """
+        Сохраняет тему в пользовательские темы и связывает с выбранными задачами.
+        """
+        theme_id = self.db.get_or_create_user_theme(topic)
+        puzzle_ids = [p.puzzle_id for p in self.selected_puzzles]
+        self.db.link_puzzles_to_user_theme(theme_id, puzzle_ids)
+        self._refresh_user_themes()
+        self._refresh_exclude_user_themes()
+
     def _format_answers_solution(self, puzzle: Puzzle) -> str:
+        """
+        Форматирует решение для файла ответов.
+
+        Если черные ходят первыми, добавляет "..." после номера хода.
+        """
         moves = puzzle.solution.split()
         if not moves:
             return ""

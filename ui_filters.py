@@ -196,6 +196,14 @@ class PuzzleFiltersMixin:
         return None
 
     def _apply_filter(self) -> None:
+        """
+        Запускает фильтрацию с debounce.
+
+        - Если предыдущая фильтрация ещё выполняется, новая не стартует.
+        - Предыдущий отложенный вызов отменяется, чтобы не было дублирования.
+        - Сама фильтрация выполняется в фоновом потоке, чтобы не заморозить UI.
+        - После завершения результат возвращается в основной поток через `root.after`.
+        """
         if getattr(self, "_filter_thread", None) and self._filter_thread.is_alive():
             return
 
@@ -209,17 +217,20 @@ class PuzzleFiltersMixin:
             self.root.update_idletasks()
 
             def run():
+                # filter_puzzles с return_total=True возвращает (puzzles, total_count).
                 puzzles, count = self.db.filter_puzzles(
                     **self._filter_values,
                     limit=FILTER_PAGE_SIZE,
                     offset=0,
                     return_total=True,
                 )
+                # Обновление UI должно происходить в основном потоке.
                 self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
 
             self._filter_thread = threading.Thread(target=run, daemon=True)
             self._filter_thread.start()
 
+        # Debounce: реальный запуск откладывается на FILTER_DEBOUNCE_MS.
         self._filter_after_id = self.root.after(FILTER_DEBOUNCE_MS, _do_apply)
 
     def _set_filtering_status(self, active: bool) -> None:
@@ -318,6 +329,15 @@ class PuzzleFiltersMixin:
         self.stats_label.config(text=text)
 
     def _reset_filters(self) -> None:
+        """
+        Сбрасывает все фильтры в начальное состояние.
+
+        Возвращает:
+        - все скейлы/спинбоксы к значениям по умолчанию
+        - комбобоксы к пустой строке
+        - снимает выделение в списках тем
+        - очищает выбранные задачи и статистику
+        """
         for key, widget in self.filter_widgets.items():
             if isinstance(widget, tk.IntVar):
                 default_value, var, label = self._scale_defaults[key]

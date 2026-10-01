@@ -33,6 +33,12 @@ class PuzzleThemesMixin:
             pass
 
     def _on_category_selected(self, event=None) -> None:
+        """
+        При выборе категории заполняет список стандартных тем.
+
+        Если выбрана пользовательская тема, сбрасываем её, чтобы не было
+        конфликта между стандартными и пользовательскими темами.
+        """
         if self.user_themes_var.get():
             self.user_themes_var.set("")
             self.user_themes_cb.set("")
@@ -55,6 +61,12 @@ class PuzzleThemesMixin:
             self.themes_listbox.insert(tk.END, display)
 
     def _on_db_ready(self) -> None:
+        """
+        Вызывается после завершения импорта БД.
+
+        Заполняет список стандартных тем, обновляет категории,
+        сбрасывает выбранные темы и заполняет пользовательские темы.
+        """
         themes = self.db.get_all_themes()
         self._available_theme_ids = set(themes)
         self.status_label.config(text=t("status_db_ready"))

@@ -34,6 +34,10 @@ class PieceSet:
         self.size = size
 
     def get_piece(self, piece_symbol: str) -> "Image.Image":
+        """
+        Возвращает изображение фигуры. Сначала проверяет память-кэш,
+        затем дисковый кэш, и только потом скачивает с CDN.
+        """
         key = f"{piece_symbol}_{self.size}"
         if key in PieceSet._cache:
             return PieceSet._cache[key]
@@ -44,6 +48,7 @@ class PieceSet:
         if cache_path.exists():
             img = Image.open(cache_path).convert("RGBA")
         else:
+            # Скачиваем SVG с lichess CDN и конвертируем в PNG нужного размера.
             svg_url = f"{_LICHESS_PIECE_BASE}/{piece_name}.svg"
             resp = requests.get(svg_url, timeout=LICHESS_CDN_TIMEOUT)
             resp.raise_for_status()

@@ -139,12 +139,15 @@ class PuzzleDatabase:
         """
         cursor = self.conn.cursor()
 
+        # WAL-режим позволяет читать таблицу во время записи, что важно для UI.
+        # NORMAL синхронизация безопасна для desktop и значительно быстрее FULL.
         cursor.execute("PRAGMA journal_mode = WAL")
         cursor.execute("PRAGMA synchronous = NORMAL")
         cursor.execute("PRAGMA temp_store = MEMORY")
         cursor.execute("PRAGMA cache_size = -64000")
         cursor.execute("PRAGMA locking_mode = NORMAL")
 
+        # Полная пересборка схемы быстрее и надёжнее, чем DELETE FROM.
         cursor.execute("DROP TABLE IF EXISTS puzzle_themes")
         cursor.execute("DROP TABLE IF EXISTS puzzles")
         self._create_schema()
@@ -156,6 +159,7 @@ class PuzzleDatabase:
         i = 0
 
         try:
+            # Один проход по CSV. Большие файлы не хранятся целиком в памяти.
             with open(self.csv_path, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 next(reader)
@@ -171,6 +175,7 @@ class PuzzleDatabase:
                     opening_tags = row[9] if len(row) > 9 else ""
                     daily_date = row[10] if len(row) > 10 and row[10] else None
 
+                    # В CSV цвет хода = сторона, которая только что сходила.
                     color = fen.split()[1] if len(fen.split()) > 1 else "w"
 
                     batch.append((
@@ -179,9 +184,11 @@ class PuzzleDatabase:
                         opening_tags, daily_date, color,
                     ))
 
+                    # Темы хранятся в отдельной таблице для быстрого фильтра по теме.
                     for theme in themes.split():
                         theme_batch.append((puzzle_id, theme))
 
+                    # Пакетная вставка уменьшает количество транзакций и ускоряет импорт.
                     if len(batch) >= batch_size:
                         cursor.executemany(
                             "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -202,6 +209,7 @@ class PuzzleDatabase:
         except Exception as exc:
             raise RuntimeError(f"Failed to import CSV: {exc}") from exc
 
+        # Вставляем остаток после последнего полного пакета.
         if batch:
             cursor.executemany(
                 "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -214,6 +222,8 @@ class PuzzleDatabase:
             total_inserted += len(batch)
 
         self.conn.commit()
+
+        # Индексы создаём после вставки: это быстрее, чем поддерживать их во время импорта.
         if status_callback:
             status_callback(f"Creating indexes (0/{len(SQL_INDEXES)})")
         self.create_indexes(progress_callback=lambda idx: status_callback(f"Creating indexes ({idx}/{len(SQL_INDEXES)})") if status_callback else None)
@@ -263,6 +273,12 @@ class PuzzleDatabase:
         return row[0] if row else 0
 
     def get_stats(self, filters: Optional[dict] = None) -> dict:
+        """
+        Возвращает статистику по текущим фильтрам.
+
+        Статистика кэшируется, чтобы не выполнять один и тот же запрос
+        несколько раз при обновлении UI.
+        """
         cache_key = self._build_cache_key(**(filters or {}))
         cached = self._get_cached(cache_key, "stats")
         if cached is not None:
@@ -316,6 +332,7 @@ class PuzzleDatabase:
 
         where = " AND ".join(conditions)
 
+        # Группируем по количеству полуходов, чтобы получить статистику по длине решения.
         moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
         cursor.execute(
             f"""
@@ -345,6 +362,12 @@ class PuzzleDatabase:
     # Фильтрация
     # ------------------------------------------------------------------
     def _build_theme_condition(self, themes: List[str]):
+        """
+        Строит SQL-условие для фильтрации по нескольким темам.
+
+        При нескольких темах требуется, чтобы задача содержала ВСЕ указанные темы.
+        Это реализуется через подзапрос с GROUP BY и HAVING COUNT(DISTINCT Theme) = N.
+        """
         if not themes:
             return "", []
         if len(themes) == 1:
@@ -376,6 +399,12 @@ class PuzzleDatabase:
         user_themes: Optional[List[str]] = None,
         exclude_user_themes: Optional[List[str]] = None,
     ) -> tuple[str, List[Any]]:
+        """
+        Строит WHERE-условие и параметры для фильтрации задач.
+
+        Возвращает кортеж (where_clause, params), который можно подставить
+        в SQL-запрос вида SELECT * FROM puzzles WHERE <where_clause>.
+        """
         conditions = ["1=1"]
         params: List[Any] = []
 
@@ -413,6 +442,8 @@ class PuzzleDatabase:
             conditions.append("DailyDate <= ?")
             params.append(daily_date_to)
         if moves_exact is not None:
+            # При наличии материализованного moves_count используем его,
+            # иначе считаем количество полуходов из строки Moves.
             if self._has_moves_count_column():
                 conditions.append("moves_count = ?")
             else:
@@ -423,12 +454,14 @@ class PuzzleDatabase:
 
         where_clause = " AND ".join(conditions)
 
+        # Фильтр по нескольким стандартным темам: задача должна содержать ВСЕ выбранные темы.
         if themes:
             unique_themes = list(dict.fromkeys(themes))
             theme_sql, theme_params = self._build_theme_condition(unique_themes)
             where_clause += f" AND {theme_sql}"
             params.extend(theme_params)
 
+        # Фильтр по пользовательским темам: задача должна принадлежать хотя бы одной из выбранных.
         if user_themes:
             unique_user_themes = [name for name in user_themes if name]
             if unique_user_themes:
@@ -441,6 +474,7 @@ class PuzzleDatabase:
                 )
                 params.extend(unique_user_themes)
 
+        # Исключение по пользовательским темам: задача НЕ должна принадлежать ни одной из выбранных.
         if exclude_user_themes:
             unique_exclude = [name for name in exclude_user_themes if name]
             if unique_exclude:
@@ -506,6 +540,13 @@ class PuzzleDatabase:
         offset: int = 0,
         return_total: bool = False,
     ) -> Union[List[Puzzle], tuple[List[Puzzle], int]]:
+        """
+        Фильтрует задачи по заданным критериям с кэшированием.
+
+        При return_total=True возвращает кортеж (puzzles, total_count),
+        где total_count - общее количество задач, удовлетворяющих фильтру.
+        Это позволяет реализовать пагинацию без двух отдельных запросов.
+        """
         cache_key = self._build_cache_key(
             puzzle_id_contains=puzzle_id_contains,
             rating_min=rating_min,
@@ -546,6 +587,9 @@ class PuzzleDatabase:
             exclude_user_themes=exclude_user_themes,
         )
 
+        # При return_total=True используем оконную функцию COUNT(*) OVER()
+        # для получения общего количества задач в одном запросе.
+        # Это эффективнее, чем делать отдельный COUNT(*) запрос.
         if return_total:
             sql = f"""
                 WITH filtered AS (
@@ -663,6 +707,12 @@ class PuzzleDatabase:
         self.conn.close()
 
     def verify_import(self, csv_path: Optional[str] = None) -> dict:
+        """
+        Проверяет, что импорт CSV завершился успешно.
+
+        Сравнивает количество задач в локальной БД с количеством строк в CSV.
+        Возвращает отчет с результатами проверки.
+        """
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM puzzles")
         local_total = cursor.fetchone()[0]

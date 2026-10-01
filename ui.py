@@ -161,7 +161,7 @@ class PuzzleApp(
         self.user_themes_cb.bind("<<ComboboxSelected>>", lambda e: self._on_user_theme_selected())
         self.filter_widgets["user_themes"] = self.user_themes_cb
 
-        ttk.Label(left, text="Исключить пользовательские темы:").pack(anchor=tk.W, pady=(8, 0))
+        ttk.Label(left, text="Исключить:").pack(anchor=tk.W, pady=(8, 0))
         exclude_frame = ttk.Frame(left)
         exclude_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
         self.exclude_themes_listbox = tk.Listbox(

@@ -3,8 +3,10 @@
 
 import json
 import os
+import shutil
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -815,6 +817,56 @@ class TestDocxExport(unittest.TestCase):
         self.assertEqual(self.app.category_cb.get(), "Фазы")
         self.assertEqual(self.app.themes_listbox.curselection(), (0,))
         self.assertEqual(self.app.user_themes_var.get(), "")
+
+
+class TestLogArchive(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.old_cwd = os.getcwd()
+        os.chdir(self.temp_dir)
+
+    def tearDown(self):
+        os.chdir(self.old_cwd)
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_rotate_skips_small_log(self):
+        from log_archive import rotate
+
+        Path("docx_export.log").write_text("small log")
+        rotate()
+        self.assertTrue(Path("docx_export.log").exists())
+        self.assertFalse(any(Path(".").glob("*.gz")))
+
+    def test_rotate_archives_large_log(self):
+        from log_archive import rotate
+
+        data = "x" * (5 * 1024 * 1024 + 1)
+        Path("docx_export.log").write_text(data)
+        rotate()
+        self.assertFalse(Path("docx_export.log").exists())
+        archives = list(Path(".").glob("docx_export-*.log.gz"))
+        self.assertEqual(len(archives), 1)
+        self.assertGreater(archives[0].stat().st_size, 0)
+
+    def test_prune_removes_old_archives(self):
+        from log_archive import prune, rotate
+
+        Path("docx_export.log").write_text("x" * (5 * 1024 * 1024 + 1))
+        rotate()
+        archive = list(Path(".").glob("docx_export-*.log.gz"))[0]
+        old_time = time.time() - 11 * 86400
+        os.utime(archive, (old_time, old_time))
+        prune()
+        self.assertFalse(archive.exists())
+
+    def test_prune_keeps_recent_archives(self):
+        from log_archive import prune, rotate
+
+        Path("docx_export.log").write_text("x" * (5 * 1024 * 1024 + 1))
+        rotate()
+        archive = list(Path(".").glob("docx_export-*.log.gz"))[0]
+        prune()
+        self.assertTrue(archive.exists())
 
 
 if __name__ == "__main__":

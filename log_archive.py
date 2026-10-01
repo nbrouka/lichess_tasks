@@ -6,6 +6,8 @@ import shutil
 import time
 from pathlib import Path
 
+from constants import MAX_LOG_SIZE
+
 LOG_NAME = "docx_export.log"
 RETENTION_DAYS = 10
 ARCHIVE_EXT = ".gz"
@@ -21,7 +23,7 @@ def rotate() -> None:
         return
     try:
         stat = log_path.stat()
-        if stat.st_size == 0:
+        if stat.st_size < MAX_LOG_SIZE:
             return
     except OSError:
         return

@@ -345,6 +345,7 @@ COMBOBOX_WIDTH = 35
 COLOR_COMBOBOX_WIDTH = 15
 DELETE_BUTTON_WIDTH = 3
 DELETE_BUTTON_HEIGHT = 1
+MAX_LOG_SIZE = 5 * 1024 * 1024
 
 # ---------------------------------------------------------------------------
 # DOCX экспорт

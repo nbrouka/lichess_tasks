@@ -28,9 +28,6 @@ class PuzzleThemesMixin:
 
             categories = [CATEGORY_TRANSLATIONS.get(cat.get("name", ""), cat.get("name", "")) for cat in data.get("categories", [])]
             self.category_cb["values"] = categories
-            if categories:
-                self._category_var.set(categories[0])
-                self._on_category_selected()
         except Exception:
             pass
 
@@ -78,11 +75,7 @@ class PuzzleThemesMixin:
 
         self.themes_data = filtered_themes_data
         self.category_cb["values"] = filtered_categories
-        if filtered_categories:
-            self._category_var.set(filtered_categories[0])
-        else:
-            self._category_var.set("")
-        self._on_category_selected()
+        self._category_var.set("")
 
     def _refresh_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()
@@ -107,12 +100,7 @@ class PuzzleThemesMixin:
             self.user_themes_cb.set("")
 
     def _reset_themes_listbox_to_all(self) -> None:
-        if not getattr(self, "_available_theme_ids", None):
-            return
         self.themes_listbox.delete(0, tk.END)
-        for theme in sorted(self._available_theme_ids):
-            display = THEME_TRANSLATIONS.get(theme, theme)
-            self.themes_listbox.insert(tk.END, display)
 
     def _refresh_exclude_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()

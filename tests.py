@@ -742,6 +742,7 @@ class TestDocxExport(unittest.TestCase):
     def test_selecting_user_theme_resets_standard_filters(self):
         self.app._category_var.set("Фазы")
         self.app.category_cb.set("Фазы")
+        self.app._on_category_selected()
         self.app.themes_listbox.selection_set(0)
         self.app.exclude_themes_listbox.insert(tk.END, "Theme A")
         self.app.exclude_themes_listbox.selection_set(0)
@@ -757,6 +758,7 @@ class TestDocxExport(unittest.TestCase):
     def test_selecting_empty_user_theme_does_not_reset_standard_filters(self):
         self.app._category_var.set("Фазы")
         self.app.category_cb.set("Фазы")
+        self.app._on_category_selected()
         self.app.themes_listbox.selection_set(0)
         self.app.user_themes_var.set("")
 
@@ -778,6 +780,7 @@ class TestDocxExport(unittest.TestCase):
     def test_selecting_exclude_user_theme_resets_standard_filters(self):
         self.app._category_var.set("Фазы")
         self.app.category_cb.set("Фазы")
+        self.app._on_category_selected()
         self.app.themes_listbox.selection_set(0)
         self.app.exclude_themes_listbox.insert(tk.END, "Theme A")
         self.app.exclude_themes_listbox.selection_set(0)

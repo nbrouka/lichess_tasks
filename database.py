@@ -6,9 +6,9 @@
 import sqlite3
 import csv
 import time
+import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable, Union
-from hashlib import md5
 from hashlib import md5
 
 from constants import (
@@ -661,6 +661,30 @@ class PuzzleDatabase:
 
     def close(self) -> None:
         self.conn.close()
+
+    def verify_import(self, csv_path: Optional[str] = None) -> dict:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM puzzles")
+        local_total = cursor.fetchone()[0]
+
+        cursor.execute("SELECT Theme, COUNT(*) FROM puzzle_themes GROUP BY Theme")
+        local_theme_counts = {row[0]: row[1] for row in cursor.fetchall()}
+
+        csv_total = None
+        if csv_path and Path(csv_path).exists():
+            try:
+                with open(csv_path, "r", encoding="utf-8") as f:
+                    csv_total = sum(1 for _ in f) - 1
+            except Exception:
+                csv_total = None
+
+        return {
+            "local_total": local_total,
+            "csv_total": csv_total,
+            "theme_counts": local_theme_counts,
+            "matches": local_total if csv_total is None else (local_total == csv_total),
+            "mismatches": 0 if csv_total is None else abs(local_total - csv_total),
+        }
 
     def ensure_imported(self, progress_callback=None) -> None:
         if not self.is_imported():

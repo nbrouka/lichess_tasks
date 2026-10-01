@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import threading
 
-from constants import t, PROGRESS_WINDOW_GEOMETRY
+from constants import t, PROGRESS_WINDOW_GEOMETRY, LICHESS_THEMES_JSON
 
 
 class PuzzleImportMixin:
@@ -75,9 +75,22 @@ class PuzzleImportMixin:
             try:
                 self.db.import_csv(progress_callback=progress_callback, status_callback=status_callback)
                 self.root.after(0, self._on_db_ready)
-                self.root.after(0, lambda: messagebox.showinfo(
-                    t("about_title"), t("msg_import_success")
-                ))
+                report = self.db.verify_import(self.db.csv_path)
+                if report["matches"]:
+                    msg = (
+                        f"Import complete.\n"
+                        f"Local puzzles: {report['local_total']}\n"
+                        f"CSV rows: {report['csv_total']}\n"
+                        f"All tasks imported successfully."
+                    )
+                else:
+                    msg = (
+                        f"Import complete, but verification failed.\n"
+                        f"Local puzzles: {report['local_total']}\n"
+                        f"CSV rows: {report['csv_total']}\n"
+                        f"Difference: {report['mismatches']}"
+                    )
+                self.root.after(0, lambda: messagebox.showinfo(t("about_title"), msg))
             except Exception as exc:
                 self.root.after(0, lambda: messagebox.showerror(
                     t("msg_import_error"), str(exc)

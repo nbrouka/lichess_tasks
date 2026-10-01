@@ -18,6 +18,7 @@ DEFAULT_CSV_PATH = "lichess_db_puzzle.csv"
 DB_FILENAME = "puzzles.db"
 ICON_WINDOWS = "icon.ico"
 ICON_LINUX = "icon.png"
+LICHESS_THEMES_JSON = "lichess_themes.json"
 
 # ---------------------------------------------------------------------------
 # Шахматная доска

@@ -549,6 +549,19 @@ class TestDatabaseFilter(unittest.TestCase):
         self.assertEqual(len(puzzles), 1)
         self.assertEqual(puzzles[0].puzzle_id, "00002")
 
+    def test_verify_import_returns_report(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5 g1f3,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 e4e5 e5e4,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5 g1f3,1700,20,95,300,opening,http://example.com,Italian Game,2023-01-03",
+        ])
+        self.db.import_csv()
+        report = self.db.verify_import(self.db.csv_path)
+        self.assertEqual(report["local_total"], 3)
+        self.assertEqual(report["csv_total"], 3)
+        self.assertTrue(report["matches"])
+        self.assertEqual(report["mismatches"], 0)
+
 
 class TestDocxExport(unittest.TestCase):
     @classmethod

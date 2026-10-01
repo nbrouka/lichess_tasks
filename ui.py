@@ -7,7 +7,6 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import threading
 import json
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -43,7 +42,6 @@ class PuzzleApp(
         self.root = root
         self.root.title(t("app_title"))
         self.root.minsize(*WINDOW_MINSIZE)
-        self._set_window_icon()
 
         self.db = PuzzleDatabase(db_path=db_path, csv_path=csv_path)
 
@@ -67,7 +65,6 @@ class PuzzleApp(
         self._build_layout()
         self._init_filters()
         self._bind_events()
-        self._reset_filters()
         self._load_themes_data()
 
         # БД может быть уже готова, если файл существует
@@ -76,6 +73,11 @@ class PuzzleApp(
         else:
             self.status_label.config(text=t("status_db_not_ready"))
 
+        self._reset_filters()
+
+    # ------------------------------------------------------------------
+    # Меню
+    # ------------------------------------------------------------------
     def _set_window_icon(self) -> None:
         icon_path = Path(ICON_WINDOWS if os.name == "nt" else ICON_LINUX)
         if not icon_path.exists():
@@ -146,7 +148,7 @@ class PuzzleApp(
         themes_frame = ttk.Frame(left)
         themes_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
         self.themes_listbox = tk.Listbox(
-            themes_frame, selectmode=tk.EXTENDED, height=THEMES_LISTBOX_HEIGHT, exportselection=False,
+            themes_frame, selectmode=tk.EXTENDED, height=10, exportselection=False,
         )
         themes_scroll = ttk.Scrollbar(themes_frame, orient=tk.VERTICAL, command=self.themes_listbox.yview)
         self.themes_listbox.configure(yscrollcommand=themes_scroll.set)

@@ -107,8 +107,10 @@ class PuzzleThemesMixin:
             self.user_themes_cb.set("")
 
     def _reset_themes_listbox_to_all(self) -> None:
+        if not getattr(self, "_available_theme_ids", None):
+            return
         self.themes_listbox.delete(0, tk.END)
-        for theme in sorted(getattr(self, "_available_theme_ids", set())):
+        for theme in sorted(self._available_theme_ids):
             display = THEME_TRANSLATIONS.get(theme, theme)
             self.themes_listbox.insert(tk.END, display)
 

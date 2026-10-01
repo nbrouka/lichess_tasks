@@ -154,6 +154,7 @@ class PuzzleFiltersMixin:
         themes = [THEME_RU_TO_EN.get(t, t) for t in themes]
 
         exclude_themes = [self.exclude_themes_listbox.get(i) for i in self.exclude_themes_listbox.curselection()]
+        exclude_themes = [t.split(" (")[0] for t in exclude_themes]
 
         moves_exact = self.filter_widgets.get("moves_exact")
         moves_enabled = self.filter_widgets.get("moves_exact_enabled")
@@ -165,6 +166,9 @@ class PuzzleFiltersMixin:
         else:
             moves_exact = None
 
+        user_theme_value = self.filter_widgets["user_themes"].get()
+        user_theme_name = user_theme_value.split(" (")[0] if user_theme_value else ""
+
         return {
             "rating_min": None,
             "rating_max": None,
@@ -175,7 +179,7 @@ class PuzzleFiltersMixin:
             "moves_exact": moves_exact,
             "themes": themes if themes else None,
             "color": self._invert_color(COLOR_RU_TO_EN.get(self.filter_widgets["color"].get().strip())) or None,
-            "user_themes": [self.filter_widgets["user_themes"].get()] if self.filter_widgets["user_themes"].get() else None,
+            "user_themes": [user_theme_name] if user_theme_name else None,
             "exclude_user_themes": exclude_themes if exclude_themes else None,
         }
 

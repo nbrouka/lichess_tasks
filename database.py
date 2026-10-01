@@ -244,6 +244,19 @@ class PuzzleDatabase:
         cursor.execute("SELECT name FROM user_themes ORDER BY name")
         return [r[0] for r in cursor.fetchall()]
 
+    def get_user_theme_puzzle_count(self, name: str) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM puzzle_user_themes
+            WHERE theme_id = (SELECT id FROM user_themes WHERE name = ?)
+            """,
+            (name,),
+        )
+        row = cursor.fetchone()
+        return row[0] if row else 0
+
     def get_stats(self, filters: Optional[dict] = None) -> dict:
         cache_key = self._build_cache_key(**(filters or {}))
         cached = self._get_cached(cache_key, "stats")

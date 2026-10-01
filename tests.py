@@ -731,7 +731,10 @@ class TestDocxExport(unittest.TestCase):
             self.assertEqual(sorted(linked_ids), sorted(expected_ids))
 
             self.assertEqual(self.app.user_themes_var.get(), "")
-            self.assertIn("Мой пользовательский лист", self.app.user_themes_cb["values"])
+            self.assertTrue(
+                any("Мой пользовательский лист" in v for v in self.app.user_themes_cb["values"]),
+                msg=f"Expected theme in values, got {self.app.user_themes_cb['values']}",
+            )
         finally:
             if os.path.exists(path):
                 os.unlink(path)

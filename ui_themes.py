@@ -79,7 +79,12 @@ class PuzzleThemesMixin:
 
     def _refresh_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()
-        self.user_themes_cb["values"] = [""] + user_themes
+        themes_with_counts = []
+        for theme in user_themes:
+            count = self.db.get_user_theme_puzzle_count(theme)
+            display = f"{theme} ({count})" if count else theme
+            themes_with_counts.append(display)
+        self.user_themes_cb["values"] = [""] + themes_with_counts
         self.user_themes_var.set("")
 
     def _on_standard_theme_selected(self, event=None) -> None:
@@ -88,7 +93,9 @@ class PuzzleThemesMixin:
             self.user_themes_cb.set("")
 
     def _on_user_theme_selected(self, event=None) -> None:
-        if self.user_themes_var.get():
+        value = self.user_themes_var.get()
+        if value:
+            self.user_themes_cb.set("")
             self._category_var.set("")
             self.category_cb.set("")
             self.themes_listbox.selection_clear(0, tk.END)
@@ -106,7 +113,9 @@ class PuzzleThemesMixin:
         user_themes = self.db.get_user_themes()
         self.exclude_themes_listbox.delete(0, tk.END)
         for theme in user_themes:
-            self.exclude_themes_listbox.insert(tk.END, theme)
+            count = self.db.get_user_theme_puzzle_count(theme)
+            display = f"{theme} ({count})" if count else theme
+            self.exclude_themes_listbox.insert(tk.END, display)
 
     def _exclude_all_user_themes(self) -> None:
         self.exclude_themes_listbox.selection_set(0, tk.END)

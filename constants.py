@@ -339,6 +339,7 @@ DOCX_DIALOG_GEOMETRY = "420x220"
 FILTERS_PANEL_WIDTH = 320
 SELECTED_PANEL_WIDTH = 305
 EXCLUDE_THEMES_LISTBOX_HEIGHT = 6
+THEMES_LISTBOX_HEIGHT = 5
 
 # ---------------------------------------------------------------------------
 # DOCX экспорт

@@ -21,6 +21,7 @@ from constants import (
     WINDOW_GEOMETRY, WINDOW_MINSIZE,
     FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
     EXCLUDE_THEMES_LISTBOX_HEIGHT,
+    THEMES_LISTBOX_HEIGHT,
     ICON_WINDOWS, ICON_LINUX,
 )
 
@@ -144,7 +145,7 @@ class PuzzleApp(
         themes_frame = ttk.Frame(left)
         themes_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
         self.themes_listbox = tk.Listbox(
-            themes_frame, selectmode=tk.EXTENDED, height=10, exportselection=False,
+            themes_frame, selectmode=tk.EXTENDED, height=THEMES_LISTBOX_HEIGHT, exportselection=False,
         )
         themes_scroll = ttk.Scrollbar(themes_frame, orient=tk.VERTICAL, command=self.themes_listbox.yview)
         self.themes_listbox.configure(yscrollcommand=themes_scroll.set)

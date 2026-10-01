@@ -223,6 +223,8 @@ class PuzzleFiltersMixin:
         if active:
             self._filtering_dots = 0
             self._update_filtering_dots()
+            self.stats_label.config(text="")
+            self.count_label.config(text=t("found_label", count=0))
         else:
             if getattr(self, "_filtering_dots_id", None):
                 self.root.after_cancel(self._filtering_dots_id)

@@ -67,6 +67,7 @@ class PuzzleApp(
         self._build_layout()
         self._init_filters()
         self._bind_events()
+        self._reset_filters()
         self._load_themes_data()
 
         # БД может быть уже готова, если файл существует

@@ -99,6 +99,7 @@ class PuzzleThemesMixin:
             self._category_var.set("")
             self.category_cb.set("")
             self.themes_listbox.selection_clear(0, tk.END)
+            self.exclude_themes_listbox.selection_clear(0, tk.END)
 
     def _on_exclude_user_theme_selected(self, event=None) -> None:
         if self.exclude_themes_listbox.curselection():

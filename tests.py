@@ -743,6 +743,8 @@ class TestDocxExport(unittest.TestCase):
         self.app._category_var.set("Фазы")
         self.app.category_cb.set("Фазы")
         self.app.themes_listbox.selection_set(0)
+        self.app.exclude_themes_listbox.insert(tk.END, "Theme A")
+        self.app.exclude_themes_listbox.selection_set(0)
         self.app.user_themes_var.set("Моя тема")
 
         self.app._on_user_theme_selected()
@@ -750,6 +752,7 @@ class TestDocxExport(unittest.TestCase):
         self.assertEqual(self.app._category_var.get(), "")
         self.assertEqual(self.app.category_cb.get(), "")
         self.assertEqual(self.app.themes_listbox.curselection(), ())
+        self.assertEqual(self.app.exclude_themes_listbox.curselection(), ())
 
     def test_selecting_empty_user_theme_does_not_reset_standard_filters(self):
         self.app._category_var.set("Фазы")

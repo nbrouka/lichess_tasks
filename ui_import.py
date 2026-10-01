@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import threading
 
-from constants import t, PROGRESS_WINDOW_GEOMETRY, LICHESS_THEMES_JSON
+from constants import t, PROGRESS_WINDOW_GEOMETRY
 
 
 class PuzzleImportMixin:

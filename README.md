@@ -44,6 +44,26 @@ python -m venv .venv
 python main.py
 ```
 
+## Импорт CSV из терминала
+
+Для импорта без запуска GUI используйте `import_csv.py`:
+
+```bash
+python import_csv.py [csv_path] [db_path]
+```
+
+Пример:
+
+```bash
+python import_csv.py lichess_db_puzzle.csv puzzles.db
+```
+
+По умолчанию используются:
+- CSV: `lichess_db_puzzle.csv`
+- БД: `puzzles.db`
+
+Скрипт сравнивает количество задач в CSV и в локальной БД и выводит результат проверки.
+
 ## Логи экспорта DOCX
 
 Файл `docx_export.log` создаётся автоматически в папке проекта.
@@ -207,12 +227,13 @@ python3 main.py
 ## Структура проекта
 
 - `main.py` — точка входа
+- `import_csv.py` — CLI для импорта CSV в локальную БД
 - `ui.py` — главное окно приложения
 - `ui_filters.py` — фильтры и статистика
 - `ui_themes.py` — темы и категории
 - `ui_selection.py` — панель выбранных задач и экспорт
 - `ui_puzzle_view.py` — просмотр задачи и решение
-- `ui_import.py` — импорт CSV
+- `ui_import.py` — импорт CSV через GUI
 - `database.py` — SQLite база, фильтрация, кэш
 - `board_renderer.py` — ренер доски
 - `docx_exporter.py` — экспорт в DOCX

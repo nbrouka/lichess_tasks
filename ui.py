@@ -21,6 +21,9 @@ from constants import (
     FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
     EXCLUDE_THEMES_LISTBOX_HEIGHT,
     THEMES_LISTBOX_HEIGHT,
+    INFO_TEXT_HEIGHT,
+    COMBOBOX_WIDTH,
+    COLOR_COMBOBOX_WIDTH,
     ICON_WINDOWS, ICON_LINUX,
 )
 
@@ -131,7 +134,7 @@ class PuzzleApp(
         self.color_var = tk.StringVar(value="")
         color_cb = ttk.Combobox(
             left, textvariable=self.color_var,
-            values=["", t("color_white"), t("color_black")], state="readonly", width=15,
+            values=["", t("color_white"), t("color_black")], state="readonly", width=COLOR_COMBOBOX_WIDTH,
         )
         color_cb.pack(anchor=tk.W)
         self.filter_widgets["color"] = color_cb
@@ -139,7 +142,7 @@ class PuzzleApp(
         ttk.Label(left, text=t("category_label")).pack(anchor=tk.W, pady=(8, 0))
         self.category_cb = ttk.Combobox(
             left, textvariable=self._category_var,
-            state="readonly", width=35,
+            state="readonly", width=COMBOBOX_WIDTH,
         )
         self.category_cb.pack(anchor=tk.W)
         self.category_cb.bind("<<ComboboxSelected>>", lambda e: self._on_category_selected())
@@ -159,7 +162,7 @@ class PuzzleApp(
         self.user_themes_var = tk.StringVar(value="")
         self.user_themes_cb = ttk.Combobox(
             left, textvariable=self.user_themes_var,
-            state="readonly", width=35,
+            state="readonly", width=COMBOBOX_WIDTH,
         )
         self.user_themes_cb.pack(anchor=tk.W)
         self.user_themes_cb.bind("<<ComboboxSelected>>", lambda e: self._on_user_theme_selected())
@@ -207,7 +210,7 @@ class PuzzleApp(
         self.image_label = ttk.Label(center)
         self.image_label.grid(row=0, column=0, pady=(0, 10))
 
-        self.info_text = tk.Text(center, height=8, wrap=tk.WORD, relief=tk.FLAT)
+        self.info_text = tk.Text(center, height=INFO_TEXT_HEIGHT, wrap=tk.WORD, relief=tk.FLAT)
         self.info_text.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         self.info_text.insert("1.0", t("no_data"))
         self.info_text.config(state=tk.DISABLED)

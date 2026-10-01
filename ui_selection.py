@@ -9,7 +9,7 @@ from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 
 from board_renderer import render_puzzle
-from constants import t, THUMBNAIL_SQUARE_SIZE, DOCX_DIALOG_GEOMETRY, current_player_color_name, DOCX_ANSWER_MARGIN_CM, DOCX_ANSWER_SPACE_AFTER_PT
+from constants import t, THUMBNAIL_SQUARE_SIZE, DOCX_DIALOG_GEOMETRY, current_player_color_name, DOCX_ANSWER_MARGIN_CM, DOCX_ANSWER_SPACE_AFTER_PT, DELETE_BUTTON_WIDTH, DELETE_BUTTON_HEIGHT
 from database import Puzzle
 from docx_exporter import PuzzleDocxExporter
 from docx import Document
@@ -51,8 +51,8 @@ class PuzzleSelectionMixin:
         del_btn = tk.Button(
             wrapper,
             text="✕",
-            width=3,
-            height=1,
+            width=DELETE_BUTTON_WIDTH,
+            height=DELETE_BUTTON_HEIGHT,
             command=lambda p=puzzle, w=wrapper: self._remove_from_selected(p, w),
         )
         del_btn.pack(side=tk.TOP, fill=tk.X)

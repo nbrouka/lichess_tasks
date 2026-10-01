@@ -230,6 +230,11 @@ class PuzzleDatabase:
         cursor.execute("SELECT DISTINCT Theme FROM puzzle_themes ORDER BY Theme")
         return [r[0] for r in cursor.fetchall()]
 
+    def get_theme_counts(self) -> dict:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT Theme, COUNT(*) FROM puzzle_themes GROUP BY Theme")
+        return {row[0]: row[1] for row in cursor.fetchall()}
+
     def get_all_openings(self) -> List[str]:
         cursor = self.conn.cursor()
         cursor.execute(

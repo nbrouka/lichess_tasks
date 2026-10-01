@@ -5,6 +5,7 @@ Mixin for theme/category loading and selection in Lichess Puzzle Viewer.
 import tkinter as tk
 from pathlib import Path
 import json
+from typing import Optional
 
 from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t
 
@@ -39,36 +40,40 @@ class PuzzleThemesMixin:
         category = self._category_var.get()
         cat_themes = self.themes_data.get(category, {})
 
+        theme_counts = {}
+        if self.db.is_imported():
+            theme_counts = self.db.get_theme_counts()
+
         self.themes_listbox.delete(0, tk.END)
         for data in cat_themes.values():
             theme_id = data.get("id", "")
             if self._available_theme_ids and theme_id not in self._available_theme_ids:
                 continue
             ru_name = THEME_TRANSLATIONS.get(theme_id, data.get("name", ""))
-            count = data.get("count", "")
+            count = theme_counts.get(theme_id, 0)
             display = f"{ru_name} ({count})" if count else ru_name
             self.themes_listbox.insert(tk.END, display)
 
     def _on_db_ready(self) -> None:
         themes = self.db.get_all_themes()
         self._available_theme_ids = set(themes)
-        self.themes_listbox.delete(0, tk.END)
-        for theme in sorted(themes):
-            display = THEME_TRANSLATIONS.get(theme, theme)
-            self.themes_listbox.insert(tk.END, display)
         self.status_label.config(text=t("status_db_ready"))
 
         self._refresh_user_themes()
         self._refresh_exclude_user_themes()
 
+        theme_counts = {}
+        if self.db.is_imported():
+            theme_counts = self.db.get_theme_counts()
+
         filtered_categories = []
         filtered_themes_data = {}
         for cat_name, cat_themes in self.themes_data.items():
-            available = {
-                name: data
-                for name, data in cat_themes.items()
-                if data.get("id", "") in self._available_theme_ids
-            }
+            available = {}
+            for name, data in cat_themes.items():
+                theme_id = data.get("id", "")
+                if theme_id in self._available_theme_ids:
+                    available[name] = data
             if available:
                 filtered_categories.append(cat_name)
                 filtered_themes_data[cat_name] = available
@@ -76,6 +81,8 @@ class PuzzleThemesMixin:
         self.themes_data = filtered_themes_data
         self.category_cb["values"] = filtered_categories
         self._category_var.set("")
+
+        self._reset_themes_listbox_to_all(theme_counts)
 
     def _refresh_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()
@@ -106,8 +113,16 @@ class PuzzleThemesMixin:
             self.user_themes_var.set("")
             self.user_themes_cb.set("")
 
-    def _reset_themes_listbox_to_all(self) -> None:
+    def _reset_themes_listbox_to_all(self, theme_counts: Optional[dict] = None) -> None:
         self.themes_listbox.delete(0, tk.END)
+        if theme_counts is None:
+            theme_counts = self.db.get_theme_counts() if self.db.is_imported() else {}
+        for theme in sorted(getattr(self, "_available_theme_ids", set())):
+            count = theme_counts.get(theme, 0)
+            display = THEME_TRANSLATIONS.get(theme, theme)
+            if count:
+                display = f"{display} ({count})"
+            self.themes_listbox.insert(tk.END, display)
 
     def _refresh_exclude_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()

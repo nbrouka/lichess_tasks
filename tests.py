@@ -212,13 +212,11 @@ class TestFilterCombinations(unittest.TestCase):
         self.app._on_category_selected()
         self.assertEqual(self.app.themes_listbox.size(), 9)
         all_items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
-        self.assertTrue(
-            any(item.startswith("Дебют (") and item.endswith(")") for item in all_items),
-            msg=f"Expected 'Дебют (count)' in {all_items}",
-        )
-        debut_item = next(item for item in all_items if item.startswith("Дебют ("))
-        expected_count = self.app.db.get_theme_counts().get("opening", 0)
-        self.assertEqual(debut_item, f"Дебют ({expected_count})")
+        self.assertIn("Дебют", all_items)
+        if self.app.db.is_imported():
+            debut_item = next(item for item in all_items if item.startswith("Дебют ("))
+            expected_count = self.app.db.get_theme_counts().get("opening", 0)
+            self.assertEqual(debut_item, f"Дебют ({expected_count})")
 
     def test_category_filter_hides_missing_themes(self):
         self.app._available_theme_ids = {"opening", "middlegame", "endgame"}

@@ -36,28 +36,31 @@ set "CSV_EXISTS=0"
 if exist lichess_db_puzzle.csv set "CSV_EXISTS=1"
 echo [DEBUG] CSV_EXISTS=%CSV_EXISTS%
 
-if "%CSV_EXISTS%"=="1" (
-    echo [INFO] CSV file already exists. Skipping download.
-) else (
-    echo [STEP] Downloading Lichess puzzle database...
-    echo [INFO] URL: https://database.lichess.org/lichess_db_puzzle.csv.zst
-    echo [INFO] This may take a while (file is ~2GB compressed)...
+if "%CSV_EXISTS%"=="1" goto csv_exists
 
-    where curl >nul 2>nul
-    if %errorlevel% neq 0 (
-        echo [ERROR] curl not found. Please install curl and run again.
-        pause
-        exit /b 1
-    )
-    echo [DEBUG] curl found
+echo [STEP] Downloading Lichess puzzle database...
+echo [INFO] URL: https://database.lichess.org/lichess_db_puzzle.csv.zst
+echo [INFO] This may take a while (file is ~2GB compressed)...
 
-    curl.exe -L -o lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
-    echo [DEBUG] CSV downloaded
-
-    echo Decompressing CSV...
-    .venv\Scripts\python.exe -c "import zstandard, os; f_in=open('lichess_db_puzzle.csv.zst','rb'); dctx=zstandard.ZstdDecompressor(); f_out=open('lichess_db_puzzle.csv','wb'); dctx.copy_stream(f_in,f_out); f_in.close(); f_out.close(); os.remove('lichess_db_puzzle.csv.zst')"
-    echo [DEBUG] CSV decompressed
+where curl >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [ERROR] curl not found. Please install curl and run again.
+    pause
+    exit /b 1
 )
+echo [DEBUG] curl found
+
+curl.exe -L -o lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
+echo [DEBUG] CSV downloaded
+
+echo Decompressing CSV...
+.venv\Scripts\python.exe -c "import zstandard, os; f_in=open('lichess_db_puzzle.csv.zst','rb'); dctx=zstandard.ZstdDecompressor(); f_out=open('lichess_db_puzzle.csv','wb'); dctx.copy_stream(f_in,f_out); f_in.close(); f_out.close(); os.remove('lichess_db_puzzle.csv.zst')"
+echo [DEBUG] CSV decompressed
+goto after_csv
+
+:csv_exists
+echo [INFO] CSV file already exists. Skipping download.
+:after_csv
 
 echo.
 echo [STEP] Asking about PyInstaller build...

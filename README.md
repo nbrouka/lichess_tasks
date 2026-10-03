@@ -311,6 +311,13 @@ cd lichess_tasks
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+Или через `cmd`:
+```cmd
+git clone https://github.com/nbrouka/lichess_tasks.git
+cd lichess_tasks
+install.bat
+```
+
 Или вручную:
 ```powershell
 python -m venv .venv

@@ -74,10 +74,11 @@ echo [DEBUG] PyInstaller command will be executed now
 if exist icon.ico (
     echo [DEBUG] icon.ico found, building with icon
     .venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." --icon "icon.ico" main.py
-) else (
-    echo [DEBUG] icon.ico not found, building without icon
-    .venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." main.py
+    goto after_icon_build
 )
+echo [DEBUG] icon.ico not found, building without icon
+.venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." main.py
+:after_icon_build
 echo [DEBUG] PyInstaller finished
 
 echo.
@@ -86,19 +87,26 @@ echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
 
 echo.
 echo [STEP] Asking about desktop shortcut...
-if exist "dist\Lichess Puzzle Viewer.exe" (
-    echo [DEBUG] Executable found at dist\Lichess Puzzle Viewer.exe
-    set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
-    echo [DEBUG] CREATE_SHORTCUT answer: %CREATE_SHORTCUT%
-    if /i "%CREATE_SHORTCUT%"=="Y" (
-        echo [DEBUG] Creating shortcut via PowerShell...
-        powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
-        echo [DEBUG] Shortcut created
-        echo Desktop shortcut created!
-    )
-) else (
-    echo [ERROR] Executable not found, skipping shortcut creation.
-)
+set "SHORTCUT_EXISTS=0"
+if exist "dist\Lichess Puzzle Viewer.exe" set "SHORTCUT_EXISTS=1"
+echo [DEBUG] SHORTCUT_EXISTS=%SHORTCUT_EXISTS%
+
+if "%SHORTCUT_EXISTS%"=="0" goto no_shortcut
+
+echo [DEBUG] Executable found at dist\Lichess Puzzle Viewer.exe
+set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
+echo [DEBUG] CREATE_SHORTCUT answer: %CREATE_SHORTCUT%
+if /i not "%CREATE_SHORTCUT%"=="Y" goto no_shortcut
+
+echo [DEBUG] Creating shortcut via PowerShell...
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
+echo [DEBUG] Shortcut created
+echo Desktop shortcut created!
+goto after_shortcut
+
+:no_shortcut
+echo [ERROR] Executable not found, skipping shortcut creation.
+:after_shortcut
 
 :skip_build
 

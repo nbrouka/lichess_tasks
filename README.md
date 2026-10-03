@@ -302,6 +302,14 @@ pyinstaller --onefile --windowed \
 
 Скрипт `install.sh` автоматически создаёт ярлык в меню приложений Linux (`~/.local/share/applications/lichess-puzzle-viewer.desktop`).
 
+Если ярлык не появился в меню сразу, выполните:
+
+```bash
+update-desktop-database ~/.local/share/applications
+```
+
+Или перелогиньтесь в систему.
+
 Если нужно создать ярлык вручную:
 
 ```bash
@@ -370,6 +378,8 @@ python -m venv .venv
 Готовый `exe` будет в `dist\Lichess Puzzle Viewer.exe`.
 
 Скрипты `install.ps1` и `install.bat` после сборки предложат создать ярлык на рабочий стол автоматически.
+
+Если ярлык не появился сразу, нажмите `F5` на рабочем столе для обновления.
 
 #### Создание ярлыка на рабочий стол вручную
 

@@ -143,7 +143,13 @@ Categories=Game;BoardGame;
 EOF
             chmod +x "$USER_DESKTOP"
             echo "Desktop shortcut created: $USER_DESKTOP"
-            echo "If it does not appear, run: update-desktop-database ~/.local/share/applications"
+            if command -v gio &> /dev/null; then
+                gio set "$USER_DESKTOP" metadata::trusted true 2>/dev/null || true
+                echo "Shortcut marked as trusted."
+            else
+                echo "If it does not appear, run: update-desktop-database ~/.local/share/applications"
+                echo "Or right-click the icon and select 'Allow Launching'."
+            fi
         fi
     fi
 }

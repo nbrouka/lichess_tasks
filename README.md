@@ -343,6 +343,14 @@ EOF
 chmod +x ~/Desktop/Lichess_Puzzle_Viewer.desktop
 ```
 
+Если появится ошибка **"Untrusted Desktop File"**, выполните:
+
+```bash
+gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
+```
+
+Или правой кнопкой по ярлыку → **Allow Launching**.
+
 ### Windows
 
 #### Требования

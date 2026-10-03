@@ -26,9 +26,6 @@ class PuzzleThemesMixin:
                 for t in cat.get("themes", []):
                     themes[t.get("name", "")] = t
                 self.themes_data[ru_name] = themes
-
-            categories = [CATEGORY_TRANSLATIONS.get(cat.get("name", ""), cat.get("name", "")) for cat in data.get("categories", [])]
-            self.category_cb["values"] = categories
         except Exception:
             pass
 
@@ -114,7 +111,6 @@ class PuzzleThemesMixin:
     def _on_user_theme_selected(self, event=None) -> None:
         value = self.user_themes_var.get()
         if value:
-            self.user_themes_cb.set("")
             self._category_var.set("")
             self.category_cb.set("")
             self.themes_listbox.selection_clear(0, tk.END)

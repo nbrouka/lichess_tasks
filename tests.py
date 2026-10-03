@@ -212,7 +212,7 @@ class TestFilterCombinations(unittest.TestCase):
         self.app._on_category_selected()
         self.assertEqual(self.app.themes_listbox.size(), 9)
         all_items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
-        self.assertIn("Дебют", all_items)
+        self.assertTrue(any("Дебют" in item for item in all_items), msg=f"Expected 'Дебют' in {all_items}")
         if self.app.db.is_imported():
             debut_item = next(item for item in all_items if item.startswith("Дебют ("))
             expected_count = self.app.db.get_theme_counts().get("opening", 0)

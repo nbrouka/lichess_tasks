@@ -71,12 +71,12 @@ class PuzzleApp(
         self._load_themes_data()
 
         # БД может быть уже готова, если файл существует
+        self._reset_filters()
+
         if self.db.is_imported():
             self._on_db_ready()
         else:
             self.status_label.config(text=t("status_db_not_ready"))
-
-        self._reset_filters()
 
     # ------------------------------------------------------------------
     # Меню

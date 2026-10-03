@@ -1,0 +1,5 @@
+pillow
+python-docx
+cairosvg
+chess
+requests

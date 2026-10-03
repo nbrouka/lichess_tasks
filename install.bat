@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-setlocal enabledelayedexpansion
+setlocal
 
 echo === Lichess Puzzle Viewer installer ===
 
@@ -24,8 +24,11 @@ echo Upgrading pip...
 echo Installing dependencies...
 .venv\Scripts\pip.exe install -r requirements.txt
 
+echo.
 echo Checking CSV file...
-if not exist "lichess_db_puzzle.csv" (
+if exist lichess_db_puzzle.csv (
+    echo CSV file already exists. Skipping download.
+) else (
     echo Downloading Lichess puzzle database...
     echo URL: https://database.lichess.org/lichess_db_puzzle.csv.zst
     echo This may take a while (file is ~2GB compressed)...
@@ -43,8 +46,6 @@ if not exist "lichess_db_puzzle.csv" (
     .venv\Scripts\python.exe -c "import zstandard, os; f_in=open('lichess_db_puzzle.csv.zst','rb'); dctx=zstandard.ZstdDecompressor(); f_out=open('lichess_db_puzzle.csv','wb'); dctx.copy_stream(f_in,f_out); f_in.close(); f_out.close(); os.remove('lichess_db_puzzle.csv.zst')"
 
     echo CSV downloaded and decompressed.
-) else (
-    echo CSV file already exists. Skipping download.
 )
 
 echo.

@@ -4,11 +4,79 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+LICHESS_CSV_URL="https://database.lichess.org/lichess_db_puzzle.csv.zst"
+CSV_FILE="lichess_db_puzzle.csv"
+ZST_FILE="lichess_db_puzzle.csv.zst"
+
 check_command() {
     if ! command -v "$1" &> /dev/null; then
         echo "ERROR: '$1' not found. Please install it first."
         exit 1
     fi
+}
+
+install_system_deps() {
+    echo "Checking system dependencies..."
+    
+    if command -v apt-get &> /dev/null; then
+        echo "Detected Debian/Ubuntu. Installing system packages..."
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq python3-venv python3-pip python3-tk \
+                                  libjpeg-dev zlib1g-dev libcairo2 \
+                                  zstd curl
+    elif command -v dnf &> /dev/null; then
+        echo "Detected Fedora. Installing system packages..."
+        sudo dnf install -y python3-tkinter libjpeg-turbo-devel zlib-devel \
+                           cairo-devel zstd curl
+    elif command -v pacman &> /dev/null; then
+        echo "Detected Arch Linux. Installing system packages..."
+        sudo pacman -S --noconfirm tk libjpeg-turbo cairo zstd curl
+    elif command -v brew &> /dev/null; then
+        echo "Detected macOS. Installing system packages..."
+        brew install python-tk cairo zstd curl
+    else
+        echo "WARNING: Unknown package manager. Please install manually:"
+        echo "  - Python 3.9+ with tkinter"
+        echo "  - libjpeg, zlib, cairo"
+        echo "  - zstd, curl"
+    fi
+}
+
+download_lichess_csv() {
+    if [ -f "$CSV_FILE" ]; then
+        echo "CSV file '$CSV_FILE' already exists. Skipping download."
+        return
+    fi
+    
+    echo "Downloading Lichess puzzle database..."
+    echo "URL: $LICHESS_CSV_URL"
+    echo "This may take a while (file is ~2GB compressed)..."
+    
+    if ! command -v curl &> /dev/null; then
+        echo "ERROR: curl not found. Please install curl and run again."
+        exit 1
+    fi
+    
+    curl -L -o "$ZST_FILE" "$LICHESS_CSV_URL"
+    
+    echo "Decompressing CSV..."
+    if command -v zstd &> /dev/null; then
+        zstd -d "$ZST_FILE" -o "$CSV_FILE"
+        rm "$ZST_FILE"
+    else
+        echo "zstd not found, using Python to decompress..."
+        python3 -c "
+import zstandard
+with open('$ZST_FILE', 'rb') as f_in:
+    dctx = zstandard.ZstdDecompressor()
+    with open('$CSV_FILE', 'wb') as f_out:
+        dctx.copy_stream(f_in, f_out)
+import os
+os.remove('$ZST_FILE')
+"
+    fi
+    
+    echo "CSV downloaded and decompressed: $CSV_FILE"
 }
 
 echo "=== Lichess Puzzle Viewer installer ==="
@@ -18,6 +86,10 @@ check_command pip3
 
 PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 echo "Python version: $PYTHON_VERSION"
+
+install_system_deps
+
+download_lichess_csv
 
 if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
@@ -32,11 +104,15 @@ source .venv/bin/activate
 echo "Upgrading pip..."
 pip install --upgrade pip
 
-echo "Installing dependencies..."
+echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
 echo ""
-echo "Installation complete!"
+echo "=== Installation complete! ==="
+echo ""
 echo "To run the app:"
 echo "  source .venv/bin/activate"
 echo "  python main.py"
+echo ""
+echo "CSV file: $SCRIPT_DIR/$CSV_FILE"
+echo "Database will be created on first import."

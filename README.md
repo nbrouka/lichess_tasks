@@ -21,16 +21,26 @@
   - Сохранение пользовательских тем в БД
 - Двуязычный интерфейс: русский/английский
 
+## Репозиторий
+
+https://github.com/nbrouka/lichess_tasks.git
+
 ## Стек
 
 - Python 3.9+
 - Tkinter
 - SQLite
-- Pillow, python-chess, cairosvg, requests, python-docx
+- Pillow, python-chess, cairosvg, requests, python-docx, zstandard
 
 ## Быстрый старт
 
 ### Автоматическая установка
+
+Скрипт сам установит:
+- Системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
+- Виртуальное окружение Python
+- Python-зависимости из `requirements.txt`
+- Скачает `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/
 
 **Linux / macOS:**
 ```bash
@@ -51,6 +61,8 @@ install.bat
 ### Ручная установка
 
 ```bash
+git clone https://github.com/nbrouka/lichess_tasks.git
+cd lichess_tasks
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate     # Windows
@@ -58,7 +70,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-При первом запуске импортируйте `lichess_db_puzzle.csv` через меню.
+При первом запуске импортируйте `lichess_db_puzzle.csv` через меню, если скрипт не скачал его автоматически.
 
 ## Системные требования
 
@@ -76,7 +88,10 @@ python-docx
 cairosvg
 chess
 requests
+zstandard
 ```
+
+> Примечание: скрипты установки (`install.sh`, `install.ps1`, `install.bat`) автоматически установят все зависимости, включая системные.
 
 ### Linux
 
@@ -103,6 +118,22 @@ sudo pacman -S tk libjpeg-turbo cairo
 
 ```bash
 brew install python-tk cairo
+```
+
+## База задач
+
+Скрипты установки автоматически скачивают `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/ и распаковывают его в корень проекта.
+
+Если вы хотите скачать CSV отдельно:
+
+```bash
+# Linux/macOS
+curl -L -o lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
+zstd -d lichess_db_puzzle.csv.zst
+
+# Windows (PowerShell)
+curl.exe -L -o lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
+.venv\Scripts\python.exe -c "import zstandard; ..."
 ```
 
 ## Импорт CSV из терминала
@@ -159,7 +190,7 @@ xvfb-run -a python -m unittest tests -v
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install Pillow python-chess cairosvg requests python-docx
+.venv/bin/pip install Pillow python-chess cairosvg requests python-docx zstandard
 xvfb-run -a .venv/bin/python -m unittest tests -v
 ```
 
@@ -167,7 +198,7 @@ xvfb-run -a .venv/bin/python -m unittest tests -v
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install Pillow python-chess cairosvg requests python-docx
+.venv\Scripts\pip install Pillow python-chess cairosvg requests python-docx zstandard
 .venv\Scripts\python -m unittest tests -v
 ```
 
@@ -183,13 +214,12 @@ PYTHONPATH=. xvfb-run -a python regenerate_test_docx.py
 
 ## Иконка приложения
 
-В репозитории уже есть готовые иконки:
+Приложение поддерживает иконки:
 - `icon.ico` — для Windows
 - `icon.png` — для Linux
+- `icon.svg` — векторная версия
 
-Иконка сочетает шахматного коня в стиле lichess и символ базы данных.
-
-Если нужно заменить иконку, положите в корень проекта файлы с такими же именами.
+Если нужно добавить иконку, положите файлы с такими именами в корень проекта.
 
 ### Сборка с иконкой
 
@@ -209,7 +239,19 @@ pyinstaller --onefile --windowed \
 .venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." main.py
 ```
 
+## Репозиторий
+
+https://github.com/nbrouka/lichess_tasks.git
+
 ## Сборка и установка
+
+### Автоматическая установка
+
+Скрипты (`install.sh`, `install.ps1`, `install.bat`) автоматически:
+- Установят системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
+- Создадут виртуальное окружение Python
+- Установят Python-зависимости из `requirements.txt`
+- Скачают `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/ и распакуют
 
 ### Linux
 
@@ -219,15 +261,23 @@ pyinstaller --onefile --windowed \
 - `python3-venv`, `python3-pip`, `python3-tk`
 - Системные библиотеки для Pillow и cairosvg:
   - Debian/Ubuntu: `libjpeg-dev`, `zlib1g-dev`, `libcairo2`
+  - Fedora: `libjpeg-turbo-devel`, `zlib-devel`, `cairo-devel`
+  - Arch: `libjpeg-turbo`, `cairo`
 
 #### Запуск из исходников
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/nbrouka/lichess_tasks.git
 cd lichess_tasks
+chmod +x install.sh
+./install.sh
+```
+
+Или вручную:
+```bash
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install Pillow python-chess cairosvg requests python-docx pyinstaller
+.venv/bin/pip install -r requirements.txt
 python main.py
 ```
 
@@ -247,17 +297,22 @@ pyinstaller --onefile --windowed \
 
 #### Требования
 
-- Python 3.9+
+- Python 3.9+ с опцией `tcl/tk and IDLE`
 - Visual C++ Redistributable (для некоторых пакетов)
 
 #### Запуск из исходников
 
 ```powershell
-git clone <repo-url>
+git clone https://github.com/nbrouka/lichess_tasks.git
 cd lichess_tasks
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Или вручную:
+```powershell
 python -m venv .venv
 .venv\Scripts\pip install --upgrade pip
-.venv\Scripts\pip install Pillow python-chess cairosvg requests python-docx pyinstaller
+.venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python main.py
 ```
 
@@ -277,9 +332,17 @@ python -m venv .venv
 ### macOS
 
 ```bash
+git clone https://github.com/nbrouka/lichess_tasks.git
+cd lichess_tasks
+chmod +x install.sh
+./install.sh
+```
+
+Или вручную:
+```bash
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install Pillow python-chess cairosvg requests python-docx pyinstaller
+.venv/bin/pip install -r requirements.txt
 python3 main.py
 ```
 

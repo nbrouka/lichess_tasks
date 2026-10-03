@@ -3,3 +3,4 @@ python-docx
 cairosvg
 chess
 requests
+zstandard

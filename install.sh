@@ -124,7 +124,26 @@ Terminal=false
 Categories=Game;BoardGame;
 EOF
         chmod +x "$DESKTOP_FILE"
-        echo "Desktop shortcut created: $DESKTOP_FILE"
+        echo "Menu shortcut created: $DESKTOP_FILE"
+        
+        echo ""
+        read -p "Create desktop shortcut on ~/Desktop? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            USER_DESKTOP="$HOME/Desktop/Lichess Puzzle Viewer.desktop"
+            cat > "$USER_DESKTOP" << EOF
+[Desktop Entry]
+Type=Application
+Name=Lichess Puzzle Viewer
+Exec=$SCRIPT_DIR/dist/Lichess Puzzle Viewer
+Icon=$SCRIPT_DIR/icon.png
+Terminal=false
+Categories=Game;BoardGame;
+EOF
+            chmod +x "$USER_DESKTOP"
+            echo "Desktop shortcut created: $USER_DESKTOP"
+            echo "If it does not appear, run: update-desktop-database ~/.local/share/applications"
+        fi
     fi
 }
 

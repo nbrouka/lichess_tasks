@@ -46,6 +46,8 @@ https://github.com/nbrouka/lichess_tasks.git
 
 Исполняемый файл собирается **с иконкой** (`--icon`), и скрипт может автоматически создать ярлык для быстрого запуска в меню приложений / на рабочем столе.
 
+После сборки скрипт предложит создать ярлык на рабочем столе (Windows) или в меню приложений/на рабочем столе (Linux).
+
 **Linux / macOS:**
 ```bash
 chmod +x install.sh
@@ -300,9 +302,11 @@ pyinstaller --onefile --windowed \
 
 Готовый файл будет в `dist/Lichess Puzzle Viewer`.
 
-Скрипт `install.sh` автоматически создаёт ярлык в меню приложений Linux (`~/.local/share/applications/lichess-puzzle-viewer.desktop`).
+Скрипты `install.sh`, `install.ps1` и `install.bat` автоматически создают ярлык:
+- **Linux**: в меню приложений и опционально на рабочий стол (`~/Desktop/Lichess Puzzle Viewer.desktop`)
+- **Windows**: на рабочий стол (`Lichess Puzzle Viewer.lnk`)
 
-Если ярлык не появился в меню сразу, выполните:
+Если ярлык на Linux не появился сразу, выполните:
 
 ```bash
 update-desktop-database ~/.local/share/applications
@@ -380,6 +384,8 @@ python -m venv .venv
 Скрипты `install.ps1` и `install.bat` после сборки предложат создать ярлык на рабочий стол автоматически.
 
 Если ярлык не появился сразу, нажмите `F5` на рабочем столе для обновления.
+
+Ручное создание ярлыка:
 
 #### Создание ярлыка на рабочий стол вручную
 

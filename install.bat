@@ -31,7 +31,12 @@ echo [DEBUG] dependencies installed
 
 echo.
 echo [STEP] Checking CSV file...
-if exist lichess_db_puzzle.csv (
+
+set "CSV_EXISTS=0"
+if exist lichess_db_puzzle.csv set "CSV_EXISTS=1"
+echo [DEBUG] CSV_EXISTS=%CSV_EXISTS%
+
+if "%CSV_EXISTS%"=="1" (
     echo [INFO] CSV file already exists. Skipping download.
 ) else (
     echo [STEP] Downloading Lichess puzzle database...

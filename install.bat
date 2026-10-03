@@ -46,7 +46,7 @@ if not exist lichess_db_puzzle.csv (
     echo CSV file already exists. Skipping download.
 )
 
-set /p BUILD="Build executable now? (Y/N): "
+set /p BUILD=Build executable now? (Y/N):
 if /i not "%BUILD%"=="Y" goto :skip_build
 
 echo Building executable with PyInstaller...
@@ -64,7 +64,7 @@ echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
 
 if exist dist\Lichess Puzzle Viewer.exe (
     echo.
-    set /p CREATE_SHORTCUT="Create desktop shortcut now? (Y/N): "
+    set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
     if /i "%CREATE_SHORTCUT%"=="Y" (
         powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
         echo Desktop shortcut created!

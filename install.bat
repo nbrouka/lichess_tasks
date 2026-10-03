@@ -62,7 +62,7 @@ echo.
 echo Build complete!
 echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
 
-if exist dist\Lichess Puzzle Viewer.exe (
+if exist "dist\Lichess Puzzle Viewer.exe" (
     echo.
     set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
     if /i "%CREATE_SHORTCUT%"=="Y" (

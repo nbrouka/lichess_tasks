@@ -1,6 +1,5 @@
 @echo off
 chcp 65001 >nul
-setlocal
 
 echo === Lichess Puzzle Viewer installer ===
 echo [DEBUG] Starting installer at %DATE% %TIME%
@@ -32,11 +31,10 @@ echo [DEBUG] dependencies installed
 echo.
 echo [STEP] Checking CSV file...
 
-set "CSV_EXISTS=0"
-if exist lichess_db_puzzle.csv set "CSV_EXISTS=1"
-echo [DEBUG] CSV_EXISTS=%CSV_EXISTS%
-
-if "%CSV_EXISTS%"=="1" goto csv_exists
+if exist lichess_db_puzzle.csv (
+    echo [INFO] CSV file already exists. Skipping download.
+    goto skip_download
+)
 
 echo [STEP] Downloading Lichess puzzle database...
 echo [INFO] URL: https://database.lichess.org/lichess_db_puzzle.csv.zst
@@ -56,11 +54,8 @@ echo [DEBUG] CSV downloaded
 echo Decompressing CSV...
 .venv\Scripts\python.exe -c "import zstandard, os; f_in=open('lichess_db_puzzle.csv.zst','rb'); dctx=zstandard.ZstdDecompressor(); f_out=open('lichess_db_puzzle.csv','wb'); dctx.copy_stream(f_in,f_out); f_in.close(); f_out.close(); os.remove('lichess_db_puzzle.csv.zst')"
 echo [DEBUG] CSV decompressed
-goto after_csv
 
-:csv_exists
-echo [INFO] CSV file already exists. Skipping download.
-:after_csv
+:skip_download
 
 echo.
 echo [STEP] Asking about PyInstaller build...
@@ -87,25 +82,21 @@ echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
 
 echo.
 echo [STEP] Asking about desktop shortcut...
-set "SHORTCUT_EXISTS=0"
-if exist "dist\Lichess Puzzle Viewer.exe" set "SHORTCUT_EXISTS=1"
-echo [DEBUG] SHORTCUT_EXISTS=%SHORTCUT_EXISTS%
+if exist "dist\Lichess Puzzle Viewer.exe" (
+    echo [DEBUG] Executable found at dist\Lichess Puzzle Viewer.exe
+    set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
+    echo [DEBUG] CREATE_SHORTCUT answer: %CREATE_SHORTCUT%
+    if /i "%CREATE_SHORTCUT%"=="Y" (
+        echo [DEBUG] Creating shortcut via PowerShell...
+        powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
+        echo [DEBUG] Shortcut created
+        echo Desktop shortcut created!
+        goto after_shortcut
+    )
+) else (
+    echo [ERROR] Executable not found, skipping shortcut creation.
+)
 
-if "%SHORTCUT_EXISTS%"=="0" goto no_shortcut
-
-echo [DEBUG] Executable found at dist\Lichess Puzzle Viewer.exe
-set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
-echo [DEBUG] CREATE_SHORTCUT answer: %CREATE_SHORTCUT%
-if /i not "%CREATE_SHORTCUT%"=="Y" goto no_shortcut
-
-echo [DEBUG] Creating shortcut via PowerShell...
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
-echo [DEBUG] Shortcut created
-echo Desktop shortcut created!
-goto after_shortcut
-
-:no_shortcut
-echo [ERROR] Executable not found, skipping shortcut creation.
 :after_shortcut
 
 :skip_build

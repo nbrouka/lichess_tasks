@@ -82,20 +82,39 @@ $build = Read-Host "Build executable now? (Y/N)"
 if ($build -match '^[Yy]') {
     Write-Host "Building executable with PyInstaller..." -ForegroundColor Cyan
     
-    $iconArg = ""
+    $pyinstallerArgs = @(
+        "--onefile",
+        "--windowed",
+        "--name", "Lichess Puzzle Viewer",
+        "--add-data", "lichess_themes.json;.",
+        "main.py"
+    )
+    
     if (Test-Path "icon.ico") {
-        $iconArg = "--add-data `"icon.ico;.`""
+        $pyinstallerArgs += @("--add-data", "icon.ico;.")
+        $pyinstallerArgs += @("--icon", "icon.ico")
     }
     
-    & $venvPython -m pyinstaller --onefile --windowed `
-        --name "Lichess Puzzle Viewer" `
-        --add-data "lichess_themes.json;." `
-        $iconArg `
-        main.py
+    & $venvPython -m pyinstaller @pyinstallerArgs
     
     Write-Host ""
     Write-Host "Build complete!" -ForegroundColor Green
     Write-Host "Executable location: $ScriptDir\dist\Lichess Puzzle Viewer.exe"
+    
+    if (Test-Path "$ScriptDir\dist\Lichess Puzzle Viewer.exe") {
+        Write-Host ""
+        $createShortcut = Read-Host "Create desktop shortcut now? (Y/N)"
+        if ($createShortcut -match '^[Yy]') {
+            $WshShell = New-Object -comObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\Lichess Puzzle Viewer.lnk")
+            $Shortcut.TargetPath = "$ScriptDir\dist\Lichess Puzzle Viewer.exe"
+            if (Test-Path "$ScriptDir\icon.ico") {
+                $Shortcut.IconLocation = "$ScriptDir\icon.ico"
+            }
+            $Shortcut.Save()
+            Write-Host "Desktop shortcut created!" -ForegroundColor Green
+        }
+    }
 } else {
     Write-Host "Skipping build."
 }

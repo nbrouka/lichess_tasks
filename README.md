@@ -44,6 +44,8 @@ https://github.com/nbrouka/lichess_tasks.git
 
 После установки скрипт спросит, хотите ли вы собрать исполняемый файл (`Lichess Puzzle Viewer` / `Lichess Puzzle Viewer.exe`).
 
+Исполняемый файл собирается **с иконкой** (`--icon`), и скрипт может автоматически создать ярлык для быстрого запуска в меню приложений / на рабочем столе.
+
 **Linux / macOS:**
 ```bash
 chmod +x install.sh
@@ -232,13 +234,14 @@ pyinstaller --onefile --windowed \
   --name "Lichess Puzzle Viewer" \
   --add-data "lichess_themes.json:." \
   --add-data "icon.png:." \
+  --icon "icon.png" \
   main.py
 ```
 
 #### Windows
 
 ```powershell
-.venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." main.py
+.venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." --icon "icon.ico" main.py
 ```
 
 ## Репозиторий
@@ -291,10 +294,42 @@ pyinstaller --onefile --windowed \
   --name "Lichess Puzzle Viewer" \
   --add-data "lichess_themes.json:." \
   --add-data "icon.png:." \
+  --icon "icon.png" \
   main.py
 ```
 
 Готовый файл будет в `dist/Lichess Puzzle Viewer`.
+
+Скрипт `install.sh` автоматически создаёт ярлык в меню приложений Linux (`~/.local/share/applications/lichess-puzzle-viewer.desktop`).
+
+Если нужно создать ярлык вручную:
+
+```bash
+cat > ~/.local/share/applications/lichess-puzzle-viewer.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Lichess Puzzle Viewer
+Exec=/path/to/dist/Lichess Puzzle Viewer
+Icon=/path/to/icon.png
+Terminal=false
+Categories=Game;BoardGame;
+EOF
+chmod +x ~/.local/share/applications/lichess-puzzle-viewer.desktop
+```
+
+#### Создание ярлыка на рабочий стол
+
+```bash
+cat > ~/Desktop/Lichess_Puzzle_Viewer.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Lichess Puzzle Viewer
+Exec=/path/to/dist/Lichess Puzzle Viewer
+Icon=/path/to/icon.png
+Terminal=false
+EOF
+chmod +x ~/Desktop/Lichess_Puzzle_Viewer.desktop
+```
 
 ### Windows
 
@@ -329,10 +364,26 @@ python -m venv .venv
 #### Сборка в `exe`
 
 ```powershell
-.venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." main.py
+.venv\Scripts\pyinstaller --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." --icon "icon.ico" main.py
 ```
 
 Готовый `exe` будет в `dist\Lichess Puzzle Viewer.exe`.
+
+Скрипты `install.ps1` и `install.bat` после сборки предложат создать ярлык на рабочий стол автоматически.
+
+#### Создание ярлыка на рабочий стол вручную
+
+Если скрипт не создал ярлык, можно создать его через PowerShell:
+
+```powershell
+$WshShell = New-Object -comObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut("$Home\Desktop\Lichess Puzzle Viewer.lnk")
+$Shortcut.TargetPath = "C:\path\to\dist\Lichess Puzzle Viewer.exe"
+$Shortcut.IconLocation = "C:\path\to\icon.ico"
+$Shortcut.Save()
+```
+
+Или через проводник: правой кнопкой по рабочему столу → `Создать → Ярлык`, указать путь к `dist\Lichess Puzzle Viewer.exe`, затем правой кнопкой по ярлыку → `Свойства → Изменить значок` и выбрать `icon.ico`.
 
 При запуске `exe` создаётся папка рядом с ним, где хранятся:
 - `puzzles.db` — база задач

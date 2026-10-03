@@ -100,6 +100,7 @@ build_executable() {
     
     if [ -f "icon.png" ]; then
         PYINSTALLER_ARGS+=(--add-data "icon.png:.")
+        PYINSTALLER_ARGS+=(--icon "icon.png")
     fi
     
     pyinstaller "${PYINSTALLER_ARGS[@]}"
@@ -107,6 +108,24 @@ build_executable() {
     echo ""
     echo "Build complete!"
     echo "Executable location: $SCRIPT_DIR/dist/Lichess Puzzle Viewer"
+    
+    if [ -f "$SCRIPT_DIR/dist/Lichess Puzzle Viewer" ] && [ -f "$SCRIPT_DIR/icon.png" ]; then
+        echo ""
+        echo "Creating desktop shortcut..."
+        DESKTOP_FILE="$HOME/.local/share/applications/lichess-puzzle-viewer.desktop"
+        mkdir -p "$(dirname "$DESKTOP_FILE")"
+        cat > "$DESKTOP_FILE" << EOF
+[Desktop Entry]
+Type=Application
+Name=Lichess Puzzle Viewer
+Exec=$SCRIPT_DIR/dist/Lichess Puzzle Viewer
+Icon=$SCRIPT_DIR/icon.png
+Terminal=false
+Categories=Game;BoardGame;
+EOF
+        chmod +x "$DESKTOP_FILE"
+        echo "Desktop shortcut created: $DESKTOP_FILE"
+    fi
 }
 
 echo "=== Lichess Puzzle Viewer installer ==="

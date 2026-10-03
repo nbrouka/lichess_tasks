@@ -51,16 +51,25 @@ if /i not "%BUILD%"=="Y" goto :skip_build
 
 echo Building executable with PyInstaller...
 
-set ICON_ARG=
+set PYINSTALLER_ARGS=--onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." main.py
 if exist icon.ico (
-    set ICON_ARG=--add-data "icon.ico;."
+    set PYINSTALLER_ARGS=%PYINSTALLER_ARGS% --add-data "icon.ico;." --icon "icon.ico"
 )
 
-.venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." %ICON_ARG% main.py
+.venv\Scripts\pyinstaller.exe %PYINSTALLER_ARGS%
 
 echo.
 echo Build complete!
 echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
+
+if exist dist\Lichess Puzzle Viewer.exe (
+    echo.
+    set /p CREATE_SHORTCUT="Create desktop shortcut now? (Y/N): "
+    if /i "%CREATE_SHORTCUT%"=="Y" (
+        powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
+        echo Desktop shortcut created!
+    )
+)
 
 :skip_build
 

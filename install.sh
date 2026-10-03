@@ -79,6 +79,33 @@ os.remove('$ZST_FILE')
     echo "CSV downloaded and decompressed: $CSV_FILE"
 }
 
+build_executable() {
+    echo ""
+    read -p "Build executable now? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Skipping build."
+        return
+    fi
+    
+    echo "Building executable with PyInstaller..."
+    
+    ICON_ARG=""
+    if [ -f "icon.png" ]; then
+        ICON_ARG="--add-data \"icon.png:.\""
+    fi
+    
+    pyinstaller --onefile --windowed \
+      --name "Lichess Puzzle Viewer" \
+      --add-data "lichess_themes.json:." \
+      $ICON_ARG \
+      main.py
+    
+    echo ""
+    echo "Build complete!"
+    echo "Executable location: $SCRIPT_DIR/dist/Lichess Puzzle Viewer"
+}
+
 echo "=== Lichess Puzzle Viewer installer ==="
 
 check_command python3
@@ -106,6 +133,8 @@ pip install --upgrade pip
 
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
+
+build_executable
 
 echo ""
 echo "=== Installation complete! ==="

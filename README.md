@@ -39,8 +39,10 @@ https://github.com/nbrouka/lichess_tasks.git
 Скрипт сам установит:
 - Системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
 - Виртуальное окружение Python
-- Python-зависимости из `requirements.txt`
+- Python-зависимости из `requirements.txt` (включая PyInstaller)
 - Скачает `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/
+
+После установки скрипт спросит, хотите ли вы собрать исполняемый файл (`Lichess Puzzle Viewer` / `Lichess Puzzle Viewer.exe`).
 
 **Linux / macOS:**
 ```bash
@@ -250,8 +252,9 @@ https://github.com/nbrouka/lichess_tasks.git
 Скрипты (`install.sh`, `install.ps1`, `install.bat`) автоматически:
 - Установят системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
 - Создадут виртуальное окружение Python
-- Установят Python-зависимости из `requirements.txt`
+- Установят Python-зависимости из `requirements.txt` (включая PyInstaller)
 - Скачают `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/ и распакуют
+- После установки предложат собрать исполняемый файл (`Lichess Puzzle Viewer` / `Lichess Puzzle Viewer.exe`)
 
 ### Linux
 

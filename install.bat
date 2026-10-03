@@ -46,6 +46,24 @@ if not exist lichess_db_puzzle.csv (
     echo CSV file already exists. Skipping download.
 )
 
+set /p BUILD="Build executable now? (Y/N): "
+if /i not "%BUILD%"=="Y" goto :skip_build
+
+echo Building executable with PyInstaller...
+
+set ICON_ARG=
+if exist icon.ico (
+    set ICON_ARG=--add-data "icon.ico;."
+)
+
+.venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." %ICON_ARG% main.py
+
+echo.
+echo Build complete!
+echo Executable location: %CD%\dist\Lichess Puzzle Viewer.exe
+
+:skip_build
+
 echo.
 echo Installation complete!
 echo To run the app:

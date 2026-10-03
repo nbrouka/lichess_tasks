@@ -78,6 +78,29 @@ os.remove('$ZST_FILE')
 }
 
 Write-Host ""
+$build = Read-Host "Build executable now? (Y/N)"
+if ($build -match '^[Yy]') {
+    Write-Host "Building executable with PyInstaller..." -ForegroundColor Cyan
+    
+    $iconArg = ""
+    if (Test-Path "icon.ico") {
+        $iconArg = "--add-data `"icon.ico;.`""
+    }
+    
+    & $venvPython -m pyinstaller --onefile --windowed `
+        --name "Lichess Puzzle Viewer" `
+        --add-data "lichess_themes.json;." `
+        $iconArg `
+        main.py
+    
+    Write-Host ""
+    Write-Host "Build complete!" -ForegroundColor Green
+    Write-Host "Executable location: $ScriptDir\dist\Lichess Puzzle Viewer.exe"
+} else {
+    Write-Host "Skipping build."
+}
+
+Write-Host ""
 Write-Host "=== Installation complete! ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "To run the app:"

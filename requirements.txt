@@ -4,3 +4,4 @@ cairosvg
 chess
 requests
 zstandard
+pyinstaller

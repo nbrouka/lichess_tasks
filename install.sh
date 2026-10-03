@@ -90,16 +90,19 @@ build_executable() {
     
     echo "Building executable with PyInstaller..."
     
-    ICON_ARG=""
+    PYINSTALLER_ARGS=(
+        --onefile
+        --windowed
+        --name "Lichess Puzzle Viewer"
+        --add-data "lichess_themes.json:."
+        main.py
+    )
+    
     if [ -f "icon.png" ]; then
-        ICON_ARG="--add-data \"icon.png:.\""
+        PYINSTALLER_ARGS+=(--add-data "icon.png:.")
     fi
     
-    pyinstaller --onefile --windowed \
-      --name "Lichess Puzzle Viewer" \
-      --add-data "lichess_themes.json:." \
-      $ICON_ARG \
-      main.py
+    pyinstaller "${PYINSTALLER_ARGS[@]}"
     
     echo ""
     echo "Build complete!"

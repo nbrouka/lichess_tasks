@@ -321,7 +321,7 @@ cat > ~/.local/share/applications/lichess-puzzle-viewer.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Lichess Puzzle Viewer
-Exec=/path/to/dist/Lichess Puzzle Viewer
+Exec="/path/to/dist/Lichess Puzzle Viewer"
 Icon=/path/to/icon.png
 Terminal=false
 Categories=Game;BoardGame;
@@ -336,7 +336,7 @@ cat > ~/Desktop/Lichess_Puzzle_Viewer.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Lichess Puzzle Viewer
-Exec=/path/to/dist/Lichess Puzzle Viewer
+Exec="/path/to/dist/Lichess Puzzle Viewer"
 Icon=/path/to/icon.png
 Terminal=false
 EOF

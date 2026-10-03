@@ -114,11 +114,12 @@ build_executable() {
         echo "Creating desktop shortcut..."
         DESKTOP_FILE="$HOME/.local/share/applications/lichess-puzzle-viewer.desktop"
         mkdir -p "$(dirname "$DESKTOP_FILE")"
+        chmod +x "$SCRIPT_DIR/dist/Lichess Puzzle Viewer" 2>/dev/null || true
         cat > "$DESKTOP_FILE" << EOF
 [Desktop Entry]
 Type=Application
 Name=Lichess Puzzle Viewer
-Exec=$SCRIPT_DIR/dist/Lichess Puzzle Viewer
+Exec="$SCRIPT_DIR/dist/Lichess Puzzle Viewer"
 Icon=$SCRIPT_DIR/icon.png
 Terminal=false
 Categories=Game;BoardGame;
@@ -135,7 +136,7 @@ EOF
 [Desktop Entry]
 Type=Application
 Name=Lichess Puzzle Viewer
-Exec=$SCRIPT_DIR/dist/Lichess Puzzle Viewer
+Exec="$SCRIPT_DIR/dist/Lichess Puzzle Viewer"
 Icon=$SCRIPT_DIR/icon.png
 Terminal=false
 Categories=Game;BoardGame;

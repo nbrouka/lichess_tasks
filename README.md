@@ -30,18 +30,79 @@
 
 ## Быстрый старт
 
+### Автоматическая установка
+
+**Linux / macOS:**
 ```bash
+chmod +x install.sh
+./install.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+**Windows (cmd):**
+```cmd
+install.bat
+```
+
+### Ручная установка
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+pip install -r requirements.txt
 python main.py
 ```
 
 При первом запуске импортируйте `lichess_db_puzzle.csv` через меню.
 
-## Зависимости
+## Системные требования
+
+### Общие
+- Python 3.9+
+- Виртуальное окружение (рекомендуется)
+- `lichess_themes.json` — файл с темами Lichess (должен лежать в корне проекта)
+- `lichess_db_puzzle.csv` — база задач Lichess для импорта
+
+### Зависимости Python
+
+```
+pillow
+python-docx
+cairosvg
+chess
+requests
+```
+
+### Linux
+
+Установите системные пакеты:
 
 ```bash
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
-python main.py
+# Debian/Ubuntu
+sudo apt install python3-venv python3-pip python3-tk \
+                 libjpeg-dev zlib1g-dev libcairo2
+
+# Fedora
+sudo dnf install python3-tkinter libjpeg-turbo-devel zlib-devel cairo-devel
+
+# Arch
+sudo pacman -S tk libjpeg-turbo cairo
+```
+
+### Windows
+
+- Python 3.9+ с опцией `tcl/tk and IDLE`
+- Visual C++ Redistributable (для некоторых пакетов)
+
+### macOS
+
+```bash
+brew install python-tk cairo
 ```
 
 ## Импорт CSV из терминала

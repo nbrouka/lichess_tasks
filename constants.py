@@ -34,6 +34,25 @@ ICON_WINDOWS = "icon.ico"
 ICON_LINUX = "icon.png"
 THEMES_FILE = str(_app_dir() / "lichess_themes.json")
 
+
+def get_themes_file() -> str:
+    """Return lichess_themes.json path.
+
+    При запуске из PyInstaller-сборки файл может лежать рядом с EXE
+    или внутри временной директории PyInstaller (`sys._MEIPASS`).
+    В исходниках всегда ищем рядом с приложением.
+    """
+    candidate = Path(_app_dir() / "lichess_themes.json")
+    if candidate.exists():
+        return str(candidate)
+    if getattr(sys, "frozen", False):
+        meipass = Path(getattr(sys, "_MEIPASS", ""))
+        if meipass.exists():
+            fallback = meipass / "lichess_themes.json"
+            if fallback.exists():
+                return str(fallback)
+    return str(candidate)
+
 # ---------------------------------------------------------------------------
 # Шахматная доска
 # ---------------------------------------------------------------------------

@@ -7,12 +7,12 @@ from pathlib import Path
 import json
 from typing import Optional
 
-from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t, THEMES_FILE
+from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t, get_themes_file
 
 
 class PuzzleThemesMixin:
     def _load_themes_data(self) -> None:
-        path = Path(THEMES_FILE)
+        path = Path(get_themes_file())
         if not path.exists():
             return
         try:

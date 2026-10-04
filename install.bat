@@ -161,13 +161,36 @@ if %errorlevel% equ 0 (
     goto after_cairo_install
 )
 
-echo [ERROR] Neither Chocolatey nor Scoop found.
-echo [INFO] Install Cairo manually:
-echo   - Chocolatey: choco install cairo
-echo   - Scoop: scoop install cairo
-echo   - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-pause
-goto skip_cairo
+echo [INFO] Neither Chocolatey nor Scoop found. Downloading Cairo runtime...
+echo [INFO] Downloading GTK3 Runtime with Cairo...
+curl.exe -L -o "%TEMP%\gtk3-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+if not exist "%TEMP%\gtk3-runtime.exe" (
+    echo [ERROR] Failed to download Cairo runtime
+    pause
+    goto skip_cairo
+)
+echo [OK] Download complete
+
+echo [INFO] Installing Cairo silently...
+"%TEMP%\gtk3-runtime.exe" /S
+echo [OK] Installation completed
+
+set "CAIRO_BIN=C:\Program Files\GTK3-Runtime\bin"
+if exist "%CAIRO_BIN%\cairo-2.dll" (
+    echo [OK] Cairo found at %CAIRO_BIN%
+    copy /Y "%CAIRO_BIN%\cairo-2.dll" "dist\" >nul
+    echo [OK] cairo-2.dll copied to dist
+    copy /Y "%CAIRO_BIN%\libcairo-2.dll" "dist\" >nul
+    echo [OK] libcairo-2.dll copied to dist
+) else (
+    echo [ERROR] Cairo installation failed or cairo-2.dll not found
+    echo [INFO] Install Cairo manually:
+    echo   - Chocolatey: choco install cairo
+    echo   - Scoop: scoop install cairo
+    echo   - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+    pause
+    goto skip_cairo
+)
 
 :after_cairo_install
 echo [OK] Cairo installation completed

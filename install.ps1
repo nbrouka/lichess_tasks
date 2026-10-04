@@ -141,7 +141,7 @@ Write-Host "[DEBUG] CAIRO_INSTALLED=$cairoInstalled"
 if (-not $cairoInstalled) {
     Write-Host "[WARN] Cairo library not found. SVG pieces will not work without it." -ForegroundColor Yellow
     Write-Host ""
-    $installCairo = Read-Host "Install Cairo via Chocolatey/Scoop now? (Y/N)"
+    $installCairo = Read-Host "Install Cairo automatically now? (Y/N)"
     if ($installCairo -match '^[Yy]') {
         Write-Host "[INFO] Trying to install Cairo..."
         if (Get-Command choco -ErrorAction SilentlyContinue) {
@@ -151,11 +151,28 @@ if (-not $cairoInstalled) {
             Write-Host "[INFO] Scoop found, installing cairo..."
             scoop install cairo
         } else {
-            Write-Host "[ERROR] Neither Chocolatey nor Scoop found." -ForegroundColor Red
-            Write-Host "[INFO] Install Cairo manually:"
-            Write-Host "  - Chocolatey: choco install cairo"
-            Write-Host "  - Scoop: scoop install cairo"
-            Write-Host "  - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases"
+            Write-Host "[INFO] Neither Chocolatey nor Scoop found. Downloading Cairo runtime..."
+            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+            $gtkInstaller = Join-Path $env:TEMP "gtk3-runtime.exe"
+            Invoke-WebRequest -Uri $gtkUrl -OutFile $gtkInstaller -UseBasicParsing
+            if (Test-Path $gtkInstaller) {
+                Write-Host "[OK] Download complete"
+                Write-Host "[INFO] Installing Cairo silently..."
+                Start-Process -FilePath $gtkInstaller -ArgumentList "/S" -Wait
+                Write-Host "[OK] Installation completed"
+                $cairoBin = "C:\Program Files\GTK3-Runtime\bin"
+                if (Test-Path "$cairoBin\cairo-2.dll") {
+                    Write-Host "[OK] Cairo found at $cairoBin"
+                    Copy-Item "$cairoBin\cairo-2.dll" "$ScriptDir\dist\" -Force
+                    Write-Host "[OK] cairo-2.dll copied to dist"
+                    Copy-Item "$cairoBin\libcairo-2.dll" "$ScriptDir\dist\" -Force
+                    Write-Host "[OK] libcairo-2.dll copied to dist"
+                } else {
+                    Write-Host "[ERROR] Cairo installation failed or cairo-2.dll not found" -ForegroundColor Red
+                }
+            } else {
+                Write-Host "[ERROR] Failed to download Cairo runtime" -ForegroundColor Red
+            }
         }
     } else {
         Write-Host "[INFO] Skipping Cairo installation. Unicode pieces will be used instead."

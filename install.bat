@@ -109,6 +109,63 @@ echo [OK] Shortcut created
 :skip_build
 echo.
 
+echo [CAIRO] Checking for Cairo library...
+set "CAIRO_INSTALLED=0"
+where cairo-2.dll >nul 2>nul
+if %errorlevel% equ 0 set "CAIRO_INSTALLED=1"
+where libcairo-2.dll >nul 2>nul
+if %errorlevel% equ 0 set "CAIRO_INSTALLED=1"
+echo [DEBUG] CAIRO_INSTALLED=%CAIRO_INSTALLED%
+
+if "%CAIRO_INSTALLED%"=="1" (
+    echo [OK] Cairo library found
+    goto after_cairo
+)
+
+echo [WARN] Cairo library not found. SVG pieces will not work without it.
+echo.
+echo [STEP] Install Cairo via package manager?
+echo   Y - Install Cairo via Chocolatey or Scoop
+echo   N - Skip (unicode pieces will be used instead)
+echo.
+set /p INSTALL_CAIRO=Install Cairo now? (Y/N):
+echo [DEBUG] INSTALL_CAIRO input: "%INSTALL_CAIRO%"
+if /i not "%INSTALL_CAIRO%"=="Y" goto skip_cairo
+
+echo [INFO] Trying to install Cairo...
+
+where choco >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [INFO] Chocolatey found, installing cairo...
+    choco install cairo -y
+    goto after_cairo_install
+)
+
+where scoop >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [INFO] Scoop found, installing cairo...
+    scoop install cairo
+    goto after_cairo_install
+)
+
+echo [ERROR] Neither Chocolatey nor Scoop found.
+echo [INFO] Install Cairo manually:
+echo   - Chocolatey: choco install cairo
+echo   - Scoop: scoop install cairo
+echo   - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+pause
+goto skip_cairo
+
+:after_cairo_install
+echo [OK] Cairo installation completed
+echo [INFO] You may need to restart the terminal or reinstall the executable for changes to take effect.
+
+:skip_cairo
+echo.
+
+:after_cairo
+echo.
+
 echo [DONE] Installation complete!
 echo To run the app:
 echo   .venv\Scripts\activate

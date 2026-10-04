@@ -122,12 +122,46 @@ if ($build -match '^[Yy]') {
 Write-Host ""
 Write-Host "=== Installation complete! ===" -ForegroundColor Green
 Write-Host ""
+
 Write-Host "To run the app:"
 Write-Host "  .venv\Scripts\activate"
 Write-Host "  python main.py"
 Write-Host ""
 Write-Host "CSV file: $ScriptDir\$CSV_FILE"
 Write-Host "Database will be created on first import."
+
+Write-Host ""
+Write-Host "[CAIRO] Checking for Cairo library..."
+$cairoInstalled = $false
+if (Get-Command cairo-2.dll -ErrorAction SilentlyContinue) { $cairoInstalled = $true }
+if (Get-Command libcairo-2.dll -ErrorAction SilentlyContinue) { $cairoInstalled = $true }
+Write-Host "[DEBUG] CAIRO_INSTALLED=$cairoInstalled"
+
+if (-not $cairoInstalled) {
+    Write-Host "[WARN] Cairo library not found. SVG pieces will not work without it." -ForegroundColor Yellow
+    Write-Host ""
+    $installCairo = Read-Host "Install Cairo via Chocolatey/Scoop now? (Y/N)"
+    if ($installCairo -match '^[Yy]') {
+        Write-Host "[INFO] Trying to install Cairo..."
+        if (Get-Command choco -ErrorAction SilentlyContinue) {
+            Write-Host "[INFO] Chocolatey found, installing cairo..."
+            choco install cairo -y
+        } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Write-Host "[INFO] Scoop found, installing cairo..."
+            scoop install cairo
+        } else {
+            Write-Host "[ERROR] Neither Chocolatey nor Scoop found." -ForegroundColor Red
+            Write-Host "[INFO] Install Cairo manually:"
+            Write-Host "  - Chocolatey: choco install cairo"
+            Write-Host "  - Scoop: scoop install cairo"
+            Write-Host "  - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases"
+        }
+    } else {
+        Write-Host "[INFO] Skipping Cairo installation. Unicode pieces will be used instead."
+    }
+} else {
+    Write-Host "[OK] Cairo library found"
+}
 
 if (-not $SkipRun) {
     $run = Read-Host "`nRun the app now? (Y/N)"

@@ -371,21 +371,15 @@ gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
 
 ##### Установка Cairo (опционально)
 
-Установщики `install.bat` и `install.ps1` могут автоматически установить Cairo через Chocolatey/Scoop. Если вы устанавливаете вручную:
+Установщики `install.bat` и `install.ps1` могут автоматически установить Cairo. Приоритет методов:
+1. `winget install -e --id GnuWin32.Cairo` (рекомендуется для Windows 10 1709+)
+2. `choco install cairo` (Chocolatey)
+3. `scoop install cairo` (Scoop)
+4. Скачивание GTK3 Runtime с https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 
-Через Chocolatey:
-```powershell
-choco install cairo
-```
+Установщик автоматически определяет архитектуру Windows (x64/x86) и скачивает соответствующую версию GTK3 Runtime. После установки Cairo DLL копируются в папку `dist\`, поэтому EXE работает без добавления путей в `PATH`.
 
-Через Scoop:
-```powershell
-scoop install cairo
-```
-
-Или скачать GTK3 Runtime с https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases и добавить `bin` в PATH.
-
-**Примечание:** Если Cairo не установлен, приложение автоматически использует юникодные фигуры.
+Если Cairo не установлен, приложение автоматически использует юникодные фигуры.
 
 #### Запуск из исходников
 

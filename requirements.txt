@@ -2,4 +2,5 @@ pillow
 python-docx
 chess
 requests
+zstandard
 pyinstaller

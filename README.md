@@ -357,6 +357,21 @@ gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
 
 - Python 3.9+ с опцией `tcl/tk and IDLE`
 - Visual C++ Redistributable (для некоторых пакетов)
+- Для SVG-фигур: библиотека Cairo (`cairo-2.dll`). Если она не установлена, приложение автоматически использует юникодные фигуры.
+
+##### Установка Cairo (опционально)
+
+Через Chocolatey:
+```powershell
+choco install cairo
+```
+
+Через Scoop:
+```powershell
+scoop install cairo
+```
+
+Или скачать GTK3 Runtime с https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases и добавить `bin` в PATH.
 
 #### Запуск из исходников
 

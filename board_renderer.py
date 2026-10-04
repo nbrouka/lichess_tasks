@@ -9,7 +9,11 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 import chess
-import cairosvg
+
+try:
+    import cairosvg
+except Exception:  # pragma: no cover - optional dependency
+    cairosvg = None
 
 from constants import (
     SQUARE_SIZE, BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
@@ -41,6 +45,12 @@ class PieceSet:
         key = f"{piece_symbol}_{self.size}"
         if key in PieceSet._cache:
             return PieceSet._cache[key]
+
+        if cairosvg is None:
+            raise RuntimeError(
+                "cairosvg is not available. "
+                "Install cairo system library or use unicode pieces."
+            )
 
         piece_name = _PIECE_MAP[piece_symbol]
         cache_path = self.cache_dir / f"{piece_name}_{self.size}.png"
@@ -108,7 +118,9 @@ def render_puzzle(
             fill = COLOR_LIGHT if (rank + file) % 2 == 1 else COLOR_DARK
             draw.rectangle([x1, y1, x2, y2], fill=fill)
 
-    piece_set = PieceSet(size=square_size) if use_lichess_pieces else None
+    piece_set = None
+    if use_lichess_pieces and cairosvg is not None:
+        piece_set = PieceSet(size=square_size)
 
     # Фигуры
     for square in chess.SQUARES:
@@ -122,8 +134,12 @@ def render_puzzle(
         y = (7 - rank_idx) * square_size
 
         if piece_set:
-            piece_img = piece_set.get_piece(symbol)
-            img.paste(piece_img, (x, y), piece_img)
+            try:
+                piece_img = piece_set.get_piece(symbol)
+                img.paste(piece_img, (x, y), piece_img)
+            except RuntimeError:
+                piece_set = None
+                _draw_unicode_piece(draw, symbol, x, y, square_size)
         else:
             _draw_unicode_piece(draw, symbol, x, y, square_size)
 

@@ -91,20 +91,20 @@ if exist "dist\Lichess Puzzle Viewer.exe" (
 echo.
 
 echo [8] Asking about desktop shortcut...
-if exist "dist\Lichess Puzzle Viewer.exe" (
-    echo [DEBUG] exe exists, asking about shortcut
-    set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
-    echo [DEBUG] CREATE_SHORTCUT input: "%CREATE_SHORTCUT%"
-    if /i "%CREATE_SHORTCUT%"=="Y" (
-        echo [INFO] Creating shortcut...
-        powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
-        echo [OK] Shortcut created
-    ) else (
-        echo [INFO] Shortcut creation skipped by user
-    )
-) else (
-    echo [ERROR] Executable not found, skipping shortcut creation
-)
+if exist "dist\Lichess Puzzle Viewer.exe" goto ask_shortcut
+echo [ERROR] Executable not found, skipping shortcut creation
+goto skip_shortcut
+
+:ask_shortcut
+echo [DEBUG] exe exists, asking about shortcut
+set /p CREATE_SHORTCUT=Create desktop shortcut now? (Y/N):
+echo [DEBUG] CREATE_SHORTCUT input: "%CREATE_SHORTCUT%"
+if /i not "%CREATE_SHORTCUT%"=="Y" goto skip_shortcut
+echo [INFO] Creating shortcut...
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Lichess Puzzle Viewer.lnk'); $Shortcut.TargetPath = '%CD%\dist\Lichess Puzzle Viewer.exe'; if (Test-Path '%CD%\icon.ico') { $Shortcut.IconLocation = '%CD%\icon.ico' }; $Shortcut.Save()"
+echo [OK] Shortcut created
+
+:skip_shortcut
 
 :skip_build
 echo.

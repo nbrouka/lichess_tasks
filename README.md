@@ -218,6 +218,16 @@ PYTHONPATH=. xvfb-run -a python regenerate_test_docx.py
 
 ---
 
+## Пути к данным
+
+Приложение использует пути относительно **директории приложения/EXE**:
+
+- `puzzles.db` — создаётся рядом с EXE/скриптом
+- `lichess_themes.json` — ищется рядом с EXE/скриптом
+- `.piece_cache/` — кэш фигур, создаётся рядом с EXE/скриптом
+
+Это означает, что при запуске EXE из `dist\` база и кэш будут создаваться в `dist\`, а не на рабочем столе.
+
 ## Иконка приложения
 
 Приложение поддерживает иконки:
@@ -361,6 +371,8 @@ gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
 
 ##### Установка Cairo (опционально)
 
+Установщики `install.bat` и `install.ps1` могут автоматически установить Cairo через Chocolatey/Scoop. Если вы устанавливаете вручную:
+
 Через Chocolatey:
 ```powershell
 choco install cairo
@@ -372,6 +384,8 @@ scoop install cairo
 ```
 
 Или скачать GTK3 Runtime с https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases и добавить `bin` в PATH.
+
+**Примечание:** Если Cairo не установлен, приложение автоматически использует юникодные фигуры.
 
 #### Запуск из исходников
 

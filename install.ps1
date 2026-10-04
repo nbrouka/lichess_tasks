@@ -144,23 +144,41 @@ if (-not $cairoInstalled) {
     $installCairo = Read-Host "Install Cairo automatically now? (Y/N)"
     if ($installCairo -match '^[Yy]') {
         Write-Host "[INFO] Trying to install Cairo..."
-        if (Get-Command choco -ErrorAction SilentlyContinue) {
+        $is64Bit = [Environment]::Is64BitOperatingSystem
+        Write-Host "[DEBUG] OS architecture: $(if ($is64Bit) { 'x64' } else { 'x86' })"
+        
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host "[INFO] winget found, installing GTK3 Runtime..."
+            winget install -e --id GnuWin32.Cairo --accept-source-agreements --accept-package-agreements
+        } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
             Write-Host "[INFO] Chocolatey found, installing cairo..."
             choco install cairo -y
         } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
             Write-Host "[INFO] Scoop found, installing cairo..."
             scoop install cairo
         } else {
-            Write-Host "[INFO] Neither Chocolatey nor Scoop found. Downloading Cairo runtime..."
-            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+            Write-Host "[INFO] Neither winget/Chocolatey/Scoop found. Downloading GTK3 Runtime..."
+            $gtkUrl = if ($is64Bit) {
+                "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+            } else {
+                "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win32.exe"
+            }
             $gtkInstaller = Join-Path $env:TEMP "gtk3-runtime.exe"
             Invoke-WebRequest -Uri $gtkUrl -OutFile $gtkInstaller -UseBasicParsing
             if (Test-Path $gtkInstaller) {
                 Write-Host "[OK] Download complete"
                 Write-Host "[INFO] Installing Cairo silently..."
-                Start-Process -FilePath $gtkInstaller -ArgumentList "/S" -Wait
+                if ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                    Start-Process -FilePath $gtkInstaller -ArgumentList "/S" -Wait
+                } else {
+                    $installPath = Join-Path $env:LOCALAPPDATA "GTK3-Runtime"
+                    Start-Process -FilePath $gtkInstaller -ArgumentList "/S","/D=$installPath" -Wait
+                }
                 Write-Host "[OK] Installation completed"
                 $cairoBin = "C:\Program Files\GTK3-Runtime\bin"
+                if (-not (Test-Path "$cairoBin\cairo-2.dll")) {
+                    $cairoBin = Join-Path $env:LOCALAPPDATA "GTK3-Runtime\bin"
+                }
                 if (Test-Path "$cairoBin\cairo-2.dll") {
                     Write-Host "[OK] Cairo found at $cairoBin"
                     Copy-Item "$cairoBin\cairo-2.dll" "$ScriptDir\dist\" -Force

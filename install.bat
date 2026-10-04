@@ -147,6 +147,18 @@ if /i not "%INSTALL_CAIRO%"=="Y" goto skip_cairo
 
 echo [INFO] Trying to install Cairo...
 
+set "CAIRO_ARCH=win64"
+if "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "CAIRO_ARCH=win64"
+if "%PROCESSOR_ARCHITECTURE%"=="x86" set "CAIRO_ARCH=win32"
+echo [DEBUG] Detected architecture: %CAIRO_ARCH%
+
+where winget >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [INFO] winget found, installing GTK3 Runtime...
+    winget install -e --id GnuWin32.Cairo --accept-source-agreements --accept-package-agreements
+    goto after_cairo_install
+)
+
 where choco >nul 2>nul
 if %errorlevel% equ 0 (
     echo [INFO] Chocolatey found, installing cairo...
@@ -161,9 +173,14 @@ if %errorlevel% equ 0 (
     goto after_cairo_install
 )
 
-echo [INFO] Neither Chocolatey nor Scoop found. Downloading Cairo runtime...
-echo [INFO] Downloading GTK3 Runtime with Cairo...
-curl.exe -L -o "%TEMP%\gtk3-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+echo [INFO] Neither winget/Chocolatey/Scoop found. Downloading GTK3 Runtime with Cairo...
+if "%CAIRO_ARCH%"=="win64" (
+    echo [INFO] Downloading 64-bit GTK3 Runtime...
+    curl.exe -L -o "%TEMP%\gtk3-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win64.exe"
+) else (
+    echo [INFO] Downloading 32-bit GTK3 Runtime...
+    curl.exe -L -o "%TEMP%\gtk3-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk3-runtime-3.24.37-2023-05-11-ts-win32.exe"
+)
 if not exist "%TEMP%\gtk3-runtime.exe" (
     echo [ERROR] Failed to download Cairo runtime
     pause
@@ -172,10 +189,20 @@ if not exist "%TEMP%\gtk3-runtime.exe" (
 echo [OK] Download complete
 
 echo [INFO] Installing Cairo silently...
-"%TEMP%\gtk3-runtime.exe" /S
+net session >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [INFO] Administrator rights detected, installing system-wide...
+    "%TEMP%\gtk3-runtime.exe" /S
+) else (
+    echo [WARN] No administrator rights. Installing to user profile...
+    "%TEMP%\gtk3-runtime.exe" /S /D=%LOCALAPPDATA%\GTK3-Runtime
+)
 echo [OK] Installation completed
 
 set "CAIRO_BIN=C:\Program Files\GTK3-Runtime\bin"
+if not exist "%CAIRO_BIN%\cairo-2.dll" (
+    set "CAIRO_BIN=%LOCALAPPDATA%\GTK3-Runtime\bin"
+)
 if exist "%CAIRO_BIN%\cairo-2.dll" (
     echo [OK] Cairo found at %CAIRO_BIN%
     copy /Y "%CAIRO_BIN%\cairo-2.dll" "dist\" >nul
@@ -185,6 +212,7 @@ if exist "%CAIRO_BIN%\cairo-2.dll" (
 ) else (
     echo [ERROR] Cairo installation failed or cairo-2.dll not found
     echo [INFO] Install Cairo manually:
+    echo   - winget: winget install -e --id GnuWin32.Cairo
     echo   - Chocolatey: choco install cairo
     echo   - Scoop: scoop install cairo
     echo   - Or download GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases

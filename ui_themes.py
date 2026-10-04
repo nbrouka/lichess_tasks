@@ -7,12 +7,12 @@ from pathlib import Path
 import json
 from typing import Optional
 
-from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t
+from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t, THEMES_FILE
 
 
 class PuzzleThemesMixin:
     def _load_themes_data(self) -> None:
-        path = Path("lichess_themes.json")
+        path = Path(THEMES_FILE)
         if not path.exists():
             return
         try:

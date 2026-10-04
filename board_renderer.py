@@ -17,7 +17,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 from constants import (
     SQUARE_SIZE, BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
-    PIECE_UNICODE, COLOR_COORDINATES, LICHESS_CDN_TIMEOUT,
+    PIECE_UNICODE, COLOR_COORDINATES, LICHESS_CDN_TIMEOUT, _app_dir,
 )
 
 _LICHESS_PIECE_BASE = "https://lichess1.org/assets/piece/cburnett"
@@ -33,7 +33,7 @@ class PieceSet:
     _cache: dict[str, "Image.Image"] = {}
 
     def __init__(self, cache_dir: str = ".piece_cache", size: int = SQUARE_SIZE):
-        self.cache_dir = Path(cache_dir)
+        self.cache_dir = Path(_app_dir() / cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self.size = size
 

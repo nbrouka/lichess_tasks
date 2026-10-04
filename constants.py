@@ -3,6 +3,7 @@
 """
 
 import os
+import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -11,13 +12,27 @@ from pathlib import Path
 APP_NAME = "Lichess Puzzle Viewer"
 VERSION = "1.0.0"
 
+
+def _app_dir() -> Path:
+    """Return application directory.
+
+    - Если приложение запущено из PyInstaller-сборки (`.exe`), возвращается
+      директория, в которой лежит сам EXE-файл.
+    - Иначе возвращается текущая рабочая директория.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path.cwd()
+
+
 # ---------------------------------------------------------------------------
 # Пути к данным
 # ---------------------------------------------------------------------------
 DEFAULT_CSV_PATH = "lichess_db_puzzle.csv"
-DB_FILENAME = "puzzles.db"
+DB_FILENAME = str(_app_dir() / "puzzles.db")
 ICON_WINDOWS = "icon.ico"
 ICON_LINUX = "icon.png"
+THEMES_FILE = str(_app_dir() / "lichess_themes.json")
 
 # ---------------------------------------------------------------------------
 # Шахматная доска

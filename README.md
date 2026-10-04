@@ -363,23 +363,20 @@ gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
 
 ### Windows
 
-#### Требования
+#### Предварительные требования
 
-- Python 3.9+ с опцией `tcl/tk and IDLE`
-- Visual C++ Redistributable (для некоторых пакетов)
-- Для SVG-фигур: библиотека Cairo (`cairo-2.dll`). Если она не установлена, приложение автоматически использует юникодные фигуры.
+Перед запуском установщика должны быть установлены:
+- **Python 3.9+** с опцией `tcl/tk and IDLE` (https://www.python.org/downloads/windows/)
+- **GTK3 Runtime** с Cairo (https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)
 
-##### Установка Cairo (опционально)
+Установщик `install.bat`/`install.ps1` предполагает, что Python и GTK3/Cairo уже установлены в системе. Он только:
+- Создаёт виртуальное окружение
+- Устанавливает Python-зависимости
+- Скачивает `lichess_db_puzzle.csv`
+- Собирает EXE
+- Создаёт ярлык
 
-Установщики `install.bat` и `install.ps1` могут автоматически установить Cairo через GTK4 Runtime. Приоритет методов:
-1. `winget install -e --id GnuWin32.Cairo` (рекомендуется для Windows 10 1709+)
-2. `choco install cairo` (Chocolatey)
-3. `scoop install cairo` (Scoop)
-4. Скачивание GTK4 Runtime с https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-
-Установщик автоматически определяет архитектуру Windows (x64/x86) и скачивает соответствующую версию GTK4 Runtime. После установки Cairo DLL копируются в папку `dist\`, поэтому EXE работает без добавления путей в `PATH`.
-
-Если Cairo не установлен, приложение автоматически использует юникодные фигуры.
+Если GTK3/Cairo не установлен, фигуры будут отображаться юникодом.
 
 #### Запуск из исходников
 

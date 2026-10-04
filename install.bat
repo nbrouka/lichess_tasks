@@ -9,14 +9,35 @@ echo [START] %DATE% %TIME%
 echo [CWD] %CD%
 echo.
 
-echo [1] Checking python...
+echo [1] Checking prerequisites...
+echo.
+echo [1a] Checking python...
 where python >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] python not found
+    echo [INFO] Install Python 3.9+ from https://www.python.org/downloads/windows/ and add it to PATH
     pause
     exit /b 1
 )
 echo [OK] python found
+echo.
+
+echo [1b] Checking GTK3 Runtime with Cairo...
+set "GTK3_INSTALLED=0"
+where cairo-2.dll >nul 2>nul
+if %errorlevel% equ 0 set "GTK3_INSTALLED=1"
+if not exist "C:\Program Files\GTK3-Runtime\bin\cairo-2.dll" (
+    if not exist "C:\Program Files (x86)\GTK3-Runtime\bin\cairo-2.dll" (
+        if %GTK3_INSTALLED% equ 0 (
+            echo [ERROR] GTK3 Runtime with Cairo not found
+            echo [INFO] Install GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+            echo [INFO] After installation, restart the terminal and run this script again
+            pause
+            exit /b 1
+        )
+    )
+)
+echo [OK] GTK3 Runtime found
 echo.
 
 echo [2] Checking venv...
@@ -122,112 +143,8 @@ echo [OK] Shortcut created
 :skip_build
 echo.
 
-echo [CAIRO] Checking for Cairo library...
-set "CAIRO_INSTALLED=0"
-where cairo-2.dll >nul 2>nul
-if %errorlevel% equ 0 set "CAIRO_INSTALLED=1"
-where libcairo-2.dll >nul 2>nul
-if %errorlevel% equ 0 set "CAIRO_INSTALLED=1"
-echo [DEBUG] CAIRO_INSTALLED=%CAIRO_INSTALLED%
-
-if "%CAIRO_INSTALLED%"=="1" (
-    echo [OK] Cairo library found
-    goto after_cairo
-)
-
-echo [WARN] Cairo library not found. SVG pieces will not work without it.
-echo.
-echo [STEP] Install Cairo via package manager?
-echo   Y - Install Cairo via Chocolatey or Scoop
-echo   N - Skip (unicode pieces will be used instead)
-echo.
-set /p INSTALL_CAIRO=Install Cairo now? (Y/N):
-echo [DEBUG] INSTALL_CAIRO input: "%INSTALL_CAIRO%"
-if /i not "%INSTALL_CAIRO%"=="Y" goto skip_cairo
-
-echo [INFO] Trying to install Cairo...
-
-set "CAIRO_ARCH=win64"
-if "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "CAIRO_ARCH=win64"
-if "%PROCESSOR_ARCHITECTURE%"=="x86" set "CAIRO_ARCH=win32"
-echo [DEBUG] Detected architecture: %CAIRO_ARCH%
-
-where winget >nul 2>nul
-if %errorlevel% equ 0 (
-    echo [INFO] winget found, installing GTK3 Runtime...
-    winget install -e --id GnuWin32.Cairo --accept-source-agreements --accept-package-agreements
-    goto after_cairo_install
-)
-
-where choco >nul 2>nul
-if %errorlevel% equ 0 (
-    echo [INFO] Chocolatey found, installing cairo...
-    choco install cairo -y
-    goto after_cairo_install
-)
-
-where scoop >nul 2>nul
-if %errorlevel% equ 0 (
-    echo [INFO] Scoop found, installing cairo...
-    scoop install cairo
-    goto after_cairo_install
-)
-
-echo [INFO] Neither winget/Chocolatey/Scoop found. Downloading GTK4 Runtime with Cairo...
-if "%CAIRO_ARCH%"=="win64" (
-    echo [INFO] Downloading 64-bit GTK4 Runtime...
-    curl.exe -L -o "%TEMP%\gtk4-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk4-runtime-4.16.1-2024-11-01-ts-win64.exe"
-) else (
-    echo [INFO] Downloading 32-bit GTK4 Runtime...
-    curl.exe -L -o "%TEMP%\gtk4-runtime.exe" "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk4-runtime-4.16.1-2024-11-01-ts-win32.exe"
-)
-if not exist "%TEMP%\gtk4-runtime.exe" (
-    echo [ERROR] Failed to download GTK4 runtime
-    pause
-    goto skip_cairo
-)
-echo [OK] Download complete
-
-echo [INFO] Installing Cairo silently...
-net session >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [INFO] Administrator rights detected, installing system-wide...
-    "%TEMP%\gtk4-runtime.exe" /S
-) else (
-    echo [WARN] No administrator rights. Installing to user profile...
-    "%TEMP%\gtk4-runtime.exe" /S /D=%LOCALAPPDATA%\GTK4-Runtime
-)
-echo [OK] Installation completed
-
-set "CAIRO_BIN=C:\Program Files\GTK4-Runtime\bin"
-if not exist "%CAIRO_BIN%\cairo-2.dll" (
-    set "CAIRO_BIN=%LOCALAPPDATA%\GTK4-Runtime\bin"
-)
-if exist "%CAIRO_BIN%\cairo-2.dll" (
-    echo [OK] Cairo found at %CAIRO_BIN%
-    copy /Y "%CAIRO_BIN%\cairo-2.dll" "dist\" >nul
-    echo [OK] cairo-2.dll copied to dist
-    copy /Y "%CAIRO_BIN%\libcairo-2.dll" "dist\" >nul
-    echo [OK] libcairo-2.dll copied to dist
-) else (
-    echo [ERROR] Cairo installation failed or cairo-2.dll not found
-    echo [INFO] Install Cairo manually:
-    echo   - winget: winget install -e --id GnuWin32.Cairo
-    echo   - Chocolatey: choco install cairo
-    echo   - Scoop: scoop install cairo
-    echo   - Or download GTK4 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-    pause
-    goto skip_cairo
-)
-
-:after_cairo_install
-echo [OK] Cairo installation completed
-echo [INFO] You may need to restart the terminal or reinstall the executable for changes to take effect.
-
-:skip_cairo
-echo.
-
-:after_cairo
+echo [CAIRO] GTK3 Runtime with Cairo is required for SVG pieces
+echo [INFO] If Cairo is not installed, unicode pieces will be used automatically
 echo.
 
 echo [DONE] Installation complete!

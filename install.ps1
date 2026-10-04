@@ -27,6 +27,28 @@ if (-not (Test-Command python)) {
     exit 1
 }
 
+Write-Host ""
+Write-Host "[1b] Checking GTK3 Runtime with Cairo..."
+$gtk3Paths = @(
+    "C:\Program Files\GTK3-Runtime\bin\cairo-2.dll",
+    "C:\Program Files (x86)\GTK3-Runtime\bin\cairo-2.dll"
+)
+$gtk3Installed = $false
+foreach ($path in $gtk3Paths) {
+    if (Test-Path $path) {
+        $gtk3Installed = $true
+        break
+    }
+}
+if (-not $gtk3Installed) {
+    Write-Host "[ERROR] GTK3 Runtime with Cairo not found" -ForegroundColor Red
+    Write-Host "[INFO] Install GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases"
+    Write-Host "[INFO] After installation, restart the terminal and run this script again"
+    exit 1
+}
+Write-Host "[OK] GTK3 Runtime found"
+Write-Host ""
+
 $PythonVersion = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 Write-Host "Python version: $PythonVersion"
 
@@ -132,72 +154,8 @@ Write-Host "CSV file: $ScriptDir\$CSV_FILE"
 Write-Host "Database will be created on first import."
 
 Write-Host ""
-Write-Host "[CAIRO] Checking for Cairo library..."
-$cairoInstalled = $false
-if (Get-Command cairo-2.dll -ErrorAction SilentlyContinue) { $cairoInstalled = $true }
-if (Get-Command libcairo-2.dll -ErrorAction SilentlyContinue) { $cairoInstalled = $true }
-Write-Host "[DEBUG] CAIRO_INSTALLED=$cairoInstalled"
-
-if (-not $cairoInstalled) {
-    Write-Host "[WARN] Cairo library not found. SVG pieces will not work without it." -ForegroundColor Yellow
-    Write-Host ""
-    $installCairo = Read-Host "Install Cairo automatically now? (Y/N)"
-    if ($installCairo -match '^[Yy]') {
-        Write-Host "[INFO] Trying to install Cairo..."
-        $is64Bit = [Environment]::Is64BitOperatingSystem
-        Write-Host "[DEBUG] OS architecture: $(if ($is64Bit) { 'x64' } else { 'x86' })"
-        
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host "[INFO] winget found, installing GTK4 Runtime..."
-            winget install -e --id GnuWin32.Cairo --accept-source-agreements --accept-package-agreements
-        } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
-            Write-Host "[INFO] Chocolatey found, installing cairo..."
-            choco install cairo -y
-        } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
-            Write-Host "[INFO] Scoop found, installing cairo..."
-            scoop install cairo
-        } else {
-            Write-Host "[INFO] Neither winget/Chocolatey/Scoop found. Downloading GTK4 Runtime..."
-            $gtkUrl = if ($is64Bit) {
-                "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk4-runtime-4.16.1-2024-11-01-ts-win64.exe"
-            } else {
-                "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/latest/gtk4-runtime-4.16.1-2024-11-01-ts-win32.exe"
-            }
-            $gtkInstaller = Join-Path $env:TEMP "gtk4-runtime.exe"
-            Invoke-WebRequest -Uri $gtkUrl -OutFile $gtkInstaller -UseBasicParsing
-            if (Test-Path $gtkInstaller) {
-                Write-Host "[OK] Download complete"
-                Write-Host "[INFO] Installing Cairo silently..."
-                if ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-                    Start-Process -FilePath $gtkInstaller -ArgumentList "/S" -Wait
-                } else {
-                    $installPath = Join-Path $env:LOCALAPPDATA "GTK4-Runtime"
-                    Start-Process -FilePath $gtkInstaller -ArgumentList "/S","/D=$installPath" -Wait
-                }
-                Write-Host "[OK] Installation completed"
-                $cairoBin = "C:\Program Files\GTK4-Runtime\bin"
-                if (-not (Test-Path "$cairoBin\cairo-2.dll")) {
-                    $cairoBin = Join-Path $env:LOCALAPPDATA "GTK4-Runtime\bin"
-                }
-                if (Test-Path "$cairoBin\cairo-2.dll") {
-                    Write-Host "[OK] Cairo found at $cairoBin"
-                    Copy-Item "$cairoBin\cairo-2.dll" "$ScriptDir\dist\" -Force
-                    Write-Host "[OK] cairo-2.dll copied to dist"
-                    Copy-Item "$cairoBin\libcairo-2.dll" "$ScriptDir\dist\" -Force
-                    Write-Host "[OK] libcairo-2.dll copied to dist"
-                } else {
-                    Write-Host "[ERROR] Cairo installation failed or cairo-2.dll not found" -ForegroundColor Red
-                }
-            } else {
-                Write-Host "[ERROR] Failed to download Cairo runtime" -ForegroundColor Red
-            }
-        }
-    } else {
-        Write-Host "[INFO] Skipping Cairo installation. Unicode pieces will be used instead."
-    }
-} else {
-    Write-Host "[OK] Cairo library found"
-}
+Write-Host "[CAIRO] GTK3 Runtime with Cairo is required for SVG pieces"
+Write-Host "[INFO] If Cairo is not installed, unicode pieces will be used automatically"
 
 if (-not $SkipRun) {
     $run = Read-Host "`nRun the app now? (Y/N)"

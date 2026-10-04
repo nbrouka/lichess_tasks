@@ -85,6 +85,19 @@ echo.
 echo [7] Build result...
 if exist "dist\Lichess Puzzle Viewer.exe" (
     echo [OK] Executable found: dist\Lichess Puzzle Viewer.exe
+    echo [INFO] Copying data files to dist...
+    if exist "lichess_themes.json" (
+        copy /Y "lichess_themes.json" "dist\lichess_themes.json" >nul
+        echo [OK] lichess_themes.json copied to dist
+    )
+    if exist "icon.png" (
+        copy /Y "icon.png" "dist\icon.png" >nul
+        echo [OK] icon.png copied to dist
+    )
+    if exist "icon.ico" (
+        copy /Y "icon.ico" "dist\icon.ico" >nul
+        echo [OK] icon.ico copied to dist
+    )
 ) else (
     echo [ERROR] Executable NOT found: dist\Lichess Puzzle Viewer.exe
 )

@@ -102,17 +102,18 @@ if ($build -match '^[Yy]') {
     Write-Host "Executable location: $ScriptDir\dist\Lichess Puzzle Viewer.exe"
     
     if (Test-Path "$ScriptDir\dist\Lichess Puzzle Viewer.exe") {
-        Write-Host ""
-        $createShortcut = Read-Host "Create desktop shortcut now? (Y/N)"
-        if ($createShortcut -match '^[Yy]') {
-            $WshShell = New-Object -comObject WScript.Shell
-            $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\Lichess Puzzle Viewer.lnk")
-            $Shortcut.TargetPath = "$ScriptDir\dist\Lichess Puzzle Viewer.exe"
-            if (Test-Path "$ScriptDir\icon.ico") {
-                $Shortcut.IconLocation = "$ScriptDir\icon.ico"
-            }
-            $Shortcut.Save()
-            Write-Host "Desktop shortcut created!" -ForegroundColor Green
+        Write-Host "[INFO] Copying data files to dist..."
+        if (Test-Path "$ScriptDir\lichess_themes.json") {
+            Copy-Item "$ScriptDir\lichess_themes.json" "$ScriptDir\dist\lichess_themes.json" -Force
+            Write-Host "[OK] lichess_themes.json copied to dist"
+        }
+        if (Test-Path "$ScriptDir\icon.png") {
+            Copy-Item "$ScriptDir\icon.png" "$ScriptDir\dist\icon.png" -Force
+            Write-Host "[OK] icon.png copied to dist"
+        }
+        if (Test-Path "$ScriptDir\icon.ico") {
+            Copy-Item "$ScriptDir\icon.ico" "$ScriptDir\dist\icon.ico" -Force
+            Write-Host "[OK] icon.ico copied to dist"
         }
     }
 } else {

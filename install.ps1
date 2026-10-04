@@ -27,28 +27,6 @@ if (-not (Test-Command python)) {
     exit 1
 }
 
-Write-Host ""
-Write-Host "[1b] Checking GTK3 Runtime with Cairo..."
-$gtk3Paths = @(
-    "C:\Program Files\GTK3-Runtime\bin\cairo-2.dll",
-    "C:\Program Files (x86)\GTK3-Runtime\bin\cairo-2.dll"
-)
-$gtk3Installed = $false
-foreach ($path in $gtk3Paths) {
-    if (Test-Path $path) {
-        $gtk3Installed = $true
-        break
-    }
-}
-if (-not $gtk3Installed) {
-    Write-Host "[ERROR] GTK3 Runtime with Cairo not found" -ForegroundColor Red
-    Write-Host "[INFO] Install GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases"
-    Write-Host "[INFO] After installation, restart the terminal and run this script again"
-    exit 1
-}
-Write-Host "[OK] GTK3 Runtime found"
-Write-Host ""
-
 $PythonVersion = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 Write-Host "Python version: $PythonVersion"
 
@@ -109,6 +87,7 @@ if ($build -match '^[Yy]') {
         "--windowed",
         "--name", "Lichess Puzzle Viewer",
         "--add-data", "lichess_themes.json;.",
+        "--add-data", "pieces;pieces",
         "main.py"
     )
     
@@ -137,6 +116,10 @@ if ($build -match '^[Yy]') {
             Copy-Item "$ScriptDir\icon.ico" "$ScriptDir\dist\icon.ico" -Force
             Write-Host "[OK] icon.ico copied to dist"
         }
+        if (Test-Path "$ScriptDir\pieces") {
+            Copy-Item "$ScriptDir\pieces" "$ScriptDir\dist\pieces" -Recurse -Force
+            Write-Host "[OK] pieces directory copied to dist"
+        }
     }
 } else {
     Write-Host "Skipping build."
@@ -152,10 +135,6 @@ Write-Host "  python main.py"
 Write-Host ""
 Write-Host "CSV file: $ScriptDir\$CSV_FILE"
 Write-Host "Database will be created on first import."
-
-Write-Host ""
-Write-Host "[CAIRO] GTK3 Runtime with Cairo is required for SVG pieces"
-Write-Host "[INFO] If Cairo is not installed, unicode pieces will be used automatically"
 
 if (-not $SkipRun) {
     $run = Read-Host "`nRun the app now? (Y/N)"

@@ -22,24 +22,6 @@ if %errorlevel% neq 0 (
 echo [OK] python found
 echo.
 
-echo [1b] Checking GTK3 Runtime with Cairo...
-set "GTK3_INSTALLED=0"
-where cairo-2.dll >nul 2>nul
-if %errorlevel% equ 0 set "GTK3_INSTALLED=1"
-if not exist "C:\Program Files\GTK3-Runtime\bin\cairo-2.dll" (
-    if not exist "C:\Program Files (x86)\GTK3-Runtime\bin\cairo-2.dll" (
-        if %GTK3_INSTALLED% equ 0 (
-            echo [ERROR] GTK3 Runtime with Cairo not found
-            echo [INFO] Install GTK3 Runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-            echo [INFO] After installation, restart the terminal and run this script again
-            pause
-            exit /b 1
-        )
-    )
-)
-echo [OK] GTK3 Runtime found
-echo.
-
 echo [2] Checking venv...
 if not exist .venv (
     echo [INFO] venv not found, creating...
@@ -94,11 +76,11 @@ echo [INFO] Building executable...
 
 if exist icon.ico (
     echo [INFO] icon.ico found, building with icon
-    .venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." --icon "icon.ico" main.py
+    .venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "icon.ico;." --add-data "pieces;pieces" --icon "icon.ico" main.py
     goto after_icon_build
 )
 echo [INFO] icon.ico not found, building without icon
-.venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." main.py
+.venv\Scripts\pyinstaller.exe --onefile --windowed --name "Lichess Puzzle Viewer" --add-data "lichess_themes.json;." --add-data "pieces;pieces" main.py
 :after_icon_build
 echo [OK] PyInstaller finished
 echo.
@@ -118,6 +100,10 @@ if exist "dist\Lichess Puzzle Viewer.exe" (
     if exist "icon.ico" (
         copy /Y "icon.ico" "dist\icon.ico" >nul
         echo [OK] icon.ico copied to dist
+    )
+    if exist "pieces" (
+        xcopy /E /I /Y "pieces" "dist\pieces" >nul
+        echo [OK] pieces directory copied to dist
     )
 ) else (
     echo [ERROR] Executable NOT found: dist\Lichess Puzzle Viewer.exe
@@ -141,10 +127,6 @@ echo [OK] Shortcut created
 :skip_shortcut
 
 :skip_build
-echo.
-
-echo [CAIRO] GTK3 Runtime with Cairo is required for SVG pieces
-echo [INFO] If Cairo is not installed, unicode pieces will be used automatically
 echo.
 
 echo [DONE] Installation complete!

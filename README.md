@@ -30,7 +30,7 @@ https://github.com/nbrouka/lichess_tasks.git
 - Python 3.9+
 - Tkinter
 - SQLite
-- Pillow, python-chess, cairosvg, requests, python-docx, zstandard
+- Pillow, python-chess, requests, python-docx, pyinstaller
 
 ## Быстрый старт
 
@@ -91,10 +91,9 @@ python main.py
 ```
 pillow
 python-docx
-cairosvg
 chess
 requests
-zstandard
+pyinstaller
 ```
 
 > Примечание: скрипты установки (`install.sh`, `install.ps1`, `install.bat`) автоматически установят все зависимости, включая системные.
@@ -106,7 +105,7 @@ zstandard
 ```bash
 # Debian/Ubuntu
 sudo apt install python3-venv python3-pip python3-tk \
-                 libjpeg-dev zlib1g-dev libcairo2
+                 libjpeg-dev zlib1g-dev
 
 # Fedora
 sudo dnf install python3-tkinter libjpeg-turbo-devel zlib-devel cairo-devel
@@ -196,7 +195,7 @@ xvfb-run -a python -m unittest tests -v
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install Pillow python-chess cairosvg requests python-docx zstandard
+.venv/bin/pip install Pillow python-chess requests python-docx pyinstaller
 xvfb-run -a .venv/bin/python -m unittest tests -v
 ```
 
@@ -204,7 +203,7 @@ xvfb-run -a .venv/bin/python -m unittest tests -v
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install Pillow python-chess cairosvg requests python-docx zstandard
+.venv\Scripts\pip install Pillow python-chess requests python-docx pyinstaller
 .venv\Scripts\python -m unittest tests -v
 ```
 
@@ -277,10 +276,10 @@ https://github.com/nbrouka/lichess_tasks.git
 
 - Python 3.9+
 - `python3-venv`, `python3-pip`, `python3-tk`
-- Системные библиотеки для Pillow и cairosvg:
-  - Debian/Ubuntu: `libjpeg-dev`, `zlib1g-dev`, `libcairo2`
-  - Fedora: `libjpeg-turbo-devel`, `zlib-devel`, `cairo-devel`
-  - Arch: `libjpeg-turbo`, `cairo`
+- Системные библиотеки для Pillow:
+  - Debian/Ubuntu: `libjpeg-dev`, `zlib1g-dev`
+  - Fedora: `libjpeg-turbo-devel`, `zlib-devel`
+  - Arch: `libjpeg-turbo`
 
 #### Запуск из исходников
 
@@ -365,18 +364,17 @@ gio set ~/Desktop/Lichess_Puzzle_Viewer.desktop metadata::trusted true
 
 #### Предварительные требования
 
-Перед запуском установщика должны быть установлены:
+Перед запуском установщика должен быть установлен:
 - **Python 3.9+** с опцией `tcl/tk and IDLE` (https://www.python.org/downloads/windows/)
-- **GTK3 Runtime** с Cairo (https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)
 
-Установщик `install.bat`/`install.ps1` предполагает, что Python и GTK3/Cairo уже установлены в системе. Он только:
+Установщик `install.bat`/`install.ps1` только:
 - Создаёт виртуальное окружение
 - Устанавливает Python-зависимости
 - Скачивает `lichess_db_puzzle.csv`
 - Собирает EXE
 - Создаёт ярлык
 
-Если GTK3/Cairo не установлен, фигуры будут отображаться юникодом.
+Фигуры отображаются через предварительно сгенерированные PNG-файлы.
 
 #### Запуск из исходников
 

@@ -33,6 +33,7 @@ DB_FILENAME = str(_app_dir() / "puzzles.db")
 ICON_WINDOWS = "icon.ico"
 ICON_LINUX = "icon.png"
 THEMES_FILE = str(_app_dir() / "lichess_themes.json")
+PIECES_DIR = "pieces"
 
 
 def get_themes_file() -> str:

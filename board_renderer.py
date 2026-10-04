@@ -1,77 +1,34 @@
 """
 Рендеринг шахматной доски в изображение PIL.
-Поддерживает два режима: unicode-фигуры и SVG-фигуры с lichess CDN.
+Использует предварительно сгенерированные PNG-фигуры из папки pieces/.
 """
 
-import requests
 from pathlib import Path
-from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 import chess
 
-try:
-    import cairosvg
-except Exception:  # pragma: no cover - optional dependency
-    cairosvg = None
-
 from constants import (
     SQUARE_SIZE, BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
-    PIECE_UNICODE, COLOR_COORDINATES, LICHESS_CDN_TIMEOUT, _app_dir,
+    PIECE_UNICODE, COLOR_COORDINATES, PIECES_DIR, _app_dir,
 )
 
-_LICHESS_PIECE_BASE = "https://lichess1.org/assets/piece/cburnett"
 _PIECE_MAP = {
     "P": "wP", "N": "wN", "B": "wB", "R": "wR", "Q": "wQ", "K": "wK",
     "p": "bP", "n": "bN", "b": "bB", "r": "bR", "q": "bQ", "k": "bK",
 }
 
 
-class PieceSet:
-    """Загружает и кэширует SVG-фигуры с lichess CDN."""
-
-    _cache: dict[str, "Image.Image"] = {}
-
-    def __init__(self, cache_dir: str = ".piece_cache", size: int = SQUARE_SIZE):
-        self.cache_dir = Path(_app_dir() / cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
-        self.size = size
-
-    def get_piece(self, piece_symbol: str) -> "Image.Image":
-        """
-        Возвращает изображение фигуры. Сначала проверяет память-кэш,
-        затем дисковый кэш, и только потом скачивает с CDN.
-        """
-        key = f"{piece_symbol}_{self.size}"
-        if key in PieceSet._cache:
-            return PieceSet._cache[key]
-
-        if cairosvg is None:
-            raise RuntimeError(
-                "cairosvg is not available. "
-                "Install cairo system library or use unicode pieces."
-            )
-
-        piece_name = _PIECE_MAP[piece_symbol]
-        cache_path = self.cache_dir / f"{piece_name}_{self.size}.png"
-
-        if cache_path.exists():
-            img = Image.open(cache_path).convert("RGBA")
-        else:
-            # Скачиваем SVG с lichess CDN и конвертируем в PNG нужного размера.
-            svg_url = f"{_LICHESS_PIECE_BASE}/{piece_name}.svg"
-            resp = requests.get(svg_url, timeout=LICHESS_CDN_TIMEOUT)
-            resp.raise_for_status()
-            png_bytes = cairosvg.svg2png(
-                bytestring=resp.content,
-                output_width=self.size,
-                output_height=self.size,
-            )
-            img = Image.open(BytesIO(png_bytes)).convert("RGBA")
-            img.save(cache_path, "PNG")
-
-        PieceSet._cache[key] = img
+def _load_piece_image(piece_symbol: str, size: int) -> "Image.Image | None":
+    """Загружает PNG-фигуру из папки pieces/."""
+    piece_name = _PIECE_MAP[piece_symbol]
+    png_path = _app_dir() / PIECES_DIR / f"{piece_name}.png"
+    if png_path.exists():
+        img = Image.open(png_path).convert("RGBA")
+        if img.size != (size, size):
+            img = img.resize((size, size), Image.Resampling.LANCZOS)
         return img
+    return None
 
 
 def render_puzzle(
@@ -89,9 +46,9 @@ def render_puzzle(
         fen: Начальная позиция FEN.
         moves: Строка ходов решения (UCI, через пробел).
         square_size: Размер клетки в пикселях.
-        use_lichess_pieces: Использовать SVG-фигуры с lichess CDN.
+        use_lichess_pieces: Использовать PNG-фигуры из папки pieces/.
         move_index: Индекс хода для отображения позиции после него.
-                   0 = начальная позиция, 1 = после первого хода, и т.д.
+                    0 = начальная позиция, 1 = после первого хода, и т.д.
         show_coordinates: Отображать координаты полей.
 
     Возвращает:
@@ -118,10 +75,6 @@ def render_puzzle(
             fill = COLOR_LIGHT if (rank + file) % 2 == 1 else COLOR_DARK
             draw.rectangle([x1, y1, x2, y2], fill=fill)
 
-    piece_set = None
-    if use_lichess_pieces and cairosvg is not None:
-        piece_set = PieceSet(size=square_size)
-
     # Фигуры
     for square in chess.SQUARES:
         piece = board.piece_at(square)
@@ -133,12 +86,11 @@ def render_puzzle(
         x = file_idx * square_size
         y = (7 - rank_idx) * square_size
 
-        if piece_set:
-            try:
-                piece_img = piece_set.get_piece(symbol)
+        if use_lichess_pieces:
+            piece_img = _load_piece_image(symbol, square_size)
+            if piece_img:
                 img.paste(piece_img, (x, y), piece_img)
-            except RuntimeError:
-                piece_set = None
+            else:
                 _draw_unicode_piece(draw, symbol, x, y, square_size)
         else:
             _draw_unicode_piece(draw, symbol, x, y, square_size)

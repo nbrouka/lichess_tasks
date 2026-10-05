@@ -57,7 +57,7 @@ def get_themes_file() -> str:
 # ---------------------------------------------------------------------------
 # Шахматная доска
 # ---------------------------------------------------------------------------
-SQUARE_SIZE = 60
+SQUARE_SIZE = 56
 BOARD_SIZE = SQUARE_SIZE * 8
 COLOR_LIGHT = "#F0D9B5"
 COLOR_DARK = "#B58863"
@@ -380,7 +380,7 @@ FILTERS_PANEL_WIDTH = 320
 SELECTED_PANEL_WIDTH = 305
 EXCLUDE_THEMES_LISTBOX_HEIGHT = 5
 THEMES_LISTBOX_HEIGHT = 5
-INFO_TEXT_HEIGHT = 8
+INFO_TEXT_HEIGHT = 6
 COMBOBOX_WIDTH = 35
 COLOR_COMBOBOX_WIDTH = 15
 DELETE_BUTTON_WIDTH = 3

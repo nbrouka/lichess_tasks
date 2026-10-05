@@ -51,24 +51,18 @@ class PuzzleViewMixin:
             f"Solution: {puzzle.solution}\n"
             f"FEN: {puzzle.fen}\n"
         )
-        self.info_text.config(state=tk.NORMAL)
-        self.info_text.delete("1.0", tk.END)
-        self.info_text.insert("1.0", info)
-
         if puzzle.game_url:
-            self.info_text.insert(tk.END, "Game: ")
-            link_start = self.info_text.index(tk.INSERT)
-            self.info_text.insert(tk.END, puzzle.game_url)
-            link_end = self.info_text.index(tk.INSERT)
-            self.info_text.tag_add("link", link_start, link_end)
-            self.info_text.tag_config("link", foreground="blue", underline=True)
-            self.info_text.tag_bind("link", "<Button-1>", lambda e, url=puzzle.game_url: self._open_url(url))
-
-        self.info_text.config(state=tk.DISABLED)
+            info += f"Game: {puzzle.game_url}\n"
+        self._puzzle_details_text = info
 
     def _open_url(self, url: str) -> None:
         import webbrowser
         webbrowser.open(url)
+
+    def _clear_display(self) -> None:
+        self.image_label.configure(image="", text=t("no_data"))
+        self.image_label.image = None
+        self._puzzle_details_text = t("no_data")
 
     def _prev_solution_step(self) -> None:
         if self.current_index is None or not self.filtered_puzzles:
@@ -105,14 +99,6 @@ class PuzzleViewMixin:
         self._solution_step = len(move_list)
         self._update_solution_board(puzzle)
         self._update_solution_step_label(puzzle)
-
-    def _clear_display(self) -> None:
-        self.image_label.configure(image="", text=t("no_data"))
-        self.image_label.image = None
-        self.info_text.config(state=tk.NORMAL)
-        self.info_text.delete("1.0", tk.END)
-        self.info_text.insert("1.0", t("no_data"))
-        self.info_text.config(state=tk.DISABLED)
 
     def _prev_puzzle(self) -> None:
         if self.current_index is not None and self.current_index > 0:

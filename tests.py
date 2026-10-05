@@ -403,8 +403,7 @@ class TestFilterCombinations(unittest.TestCase):
 
         with patch('webbrowser.open') as mock_open:
             self.app._update_info_text(PuzzleMock())
-            tags = self.app.info_text.tag_names()
-            self.assertIn('link', tags)
+            self.assertIn('http://example.com', self.app._puzzle_details_text)
             self.app._open_url('http://example.com')
             mock_open.assert_called_once_with('http://example.com')
 

@@ -21,7 +21,6 @@ from constants import (
     FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
     EXCLUDE_THEMES_LISTBOX_HEIGHT,
     THEMES_LISTBOX_HEIGHT,
-    INFO_TEXT_HEIGHT,
     COMBOBOX_WIDTH,
     COLOR_COMBOBOX_WIDTH,
     ICON_WINDOWS, ICON_LINUX,
@@ -45,6 +44,7 @@ class PuzzleApp(
         self.root = root
         self.root.title(t("app_title"))
         self.root.minsize(*WINDOW_MINSIZE)
+        self._puzzle_details_text = ""
 
         self.db = PuzzleDatabase(db_path=db_path, csv_path=csv_path)
 
@@ -228,10 +228,8 @@ class PuzzleApp(
         self.image_label.configure(anchor="center")
         self.image_label.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
 
-        self.info_text = tk.Text(center, height=INFO_TEXT_HEIGHT, wrap=tk.WORD, relief=tk.FLAT)
-        self.info_text.grid(row=1, column=0, sticky="ew", pady=(0, 10))
-        self.info_text.insert("1.0", t("no_data"))
-        self.info_text.config(state=tk.DISABLED)
+        details_btn = ttk.Button(center, text="См. детали задачи", command=self._show_puzzle_details)
+        details_btn.grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
         sol_frame = ttk.Frame(center)
         sol_frame.grid(row=2, column=0, sticky="ew", pady=(0, 5))
@@ -310,10 +308,62 @@ class PuzzleApp(
     # Справка
     # ------------------------------------------------------------------
     def _show_about(self) -> None:
-        messagebox.showinfo(
-            t("about_title"),
-            t("about_text"),
+        dialog = tk.Toplevel(self.root)
+        dialog.title(t("about_title"))
+        dialog.geometry("360x180")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        text = tk.Text(dialog, wrap=tk.WORD, relief=tk.FLAT)
+        text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text.insert("1.0", t("about_text"))
+        text.config(state=tk.DISABLED)
+
+        self._center_dialog(dialog)
+
+    def _show_puzzle_details(self) -> None:
+        if self.current_index is None or not self.filtered_puzzles:
+            messagebox.showinfo(t("about_title"), t("msg_select_puzzle"))
+            return
+
+        puzzle = self.filtered_puzzles[self.current_index]
+        actual_color = "b" if puzzle.color == "w" else "w"
+        color_text = t("color_white") if actual_color == "w" else t("color_black")
+        theme_count = len(puzzle.themes)
+        details = (
+            f"PuzzleId: {puzzle.puzzle_id}\n"
+            f"Rating: {puzzle.rating}  |  Popularity: {puzzle.popularity}  |  Plays: {puzzle.nb_plays}\n"
+            f"{t('color_label')} {color_text}\n"
+            f"Themes ({theme_count}): {', '.join(THEME_TRANSLATIONS.get(theme, theme) for theme in puzzle.themes)}\n"
+            f"Opening: {', '.join(puzzle.opening_tags)}\n"
+            f"Solution: {puzzle.solution}\n"
+            f"FEN: {puzzle.fen}\n"
         )
+        if puzzle.game_url:
+            details += f"Game: {puzzle.game_url}\n"
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Детали задачи")
+        dialog.geometry("520x260")
+        dialog.configure(padx=10, pady=10)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        self._center_dialog(dialog)
+
+        text = tk.Text(dialog, wrap=tk.WORD, relief=tk.FLAT)
+        text.pack(fill=tk.BOTH, expand=True)
+        text.insert("1.0", details)
+        text.config(state=tk.DISABLED)
+
+        self._center_dialog(dialog)
+
+    def _center_dialog(self, dialog: tk.Toplevel) -> None:
+        dialog.update_idletasks()
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
+        x = max(0, (self.root.winfo_screenwidth() - width) // 2)
+        y = max(0, (self.root.winfo_screenheight() - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
 
     def _delete_user_themes_dialog(self) -> None:
         user_themes = self.db.get_user_themes()
@@ -327,6 +377,7 @@ class PuzzleApp(
         dialog.minsize(360, 320)
         dialog.transient(self.root)
         dialog.grab_set()
+        self._center_dialog(dialog)
 
         ttk.Label(dialog, text=t("delete_user_themes_select")).pack(anchor=tk.W, padx=10, pady=(10, 0))
 

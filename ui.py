@@ -225,6 +225,7 @@ class PuzzleApp(
         center.grid_rowconfigure(0, weight=1)
 
         self.image_label = ttk.Label(center)
+        self.image_label.configure(anchor="center")
         self.image_label.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
 
         self.info_text = tk.Text(center, height=INFO_TEXT_HEIGHT, wrap=tk.WORD, relief=tk.FLAT)

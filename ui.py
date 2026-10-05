@@ -111,6 +111,10 @@ class PuzzleApp(
         file_menu.add_command(label=t("menu_exit"), command=self.root.quit)
         menubar.add_cascade(label=t("menu_file"), menu=file_menu)
 
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label=t("menu_user_themes"), command=self._delete_user_themes_dialog)
+        menubar.add_cascade(label=t("menu_edit"), menu=edit_menu)
+
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label=t("menu_about"), command=self._show_about)
         menubar.add_cascade(label=t("menu_help"), menu=help_menu)
@@ -309,6 +313,56 @@ class PuzzleApp(
             t("about_title"),
             t("about_text"),
         )
+
+    def _delete_user_themes_dialog(self) -> None:
+        user_themes = self.db.get_user_themes()
+        if not user_themes:
+            messagebox.showinfo(t("delete_user_themes_title"), t("msg_no_user_themes"))
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title(t("delete_user_themes_title"))
+        dialog.geometry("400x420")
+        dialog.minsize(360, 320)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        ttk.Label(dialog, text=t("delete_user_themes_select")).pack(anchor=tk.W, padx=10, pady=(10, 0))
+
+        listbox_frame = ttk.Frame(dialog)
+        listbox_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(8, 10))
+        listbox = tk.Listbox(listbox_frame, selectmode=tk.EXTENDED, exportselection=False)
+        scroll = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=listbox.yview)
+        listbox.configure(yscrollcommand=scroll.set)
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        for theme in user_themes:
+            listbox.insert(tk.END, theme)
+
+        def on_delete():
+            selected = [listbox.get(i) for i in listbox.curselection()]
+            if not selected:
+                messagebox.showinfo(t("delete_user_themes_title"), t("msg_no_user_themes"), parent=dialog)
+                return
+            self.db.delete_user_themes(selected)
+            self._refresh_user_themes()
+            self._refresh_exclude_user_themes()
+            if getattr(self, "_filter_values", {}).get("user_themes"):
+                active = [t for t in self._filter_values["user_themes"] if t in self.db.get_user_themes()]
+                if not active:
+                    self.user_themes_var.set("")
+                    self.user_themes_cb.set("")
+            if getattr(self, "_filter_values", {}).get("exclude_user_themes"):
+                active_exclude = [t for t in self._filter_values["exclude_user_themes"] if t in self.db.get_user_themes()]
+                if not active_exclude:
+                    self.exclude_themes_listbox.selection_clear(0, tk.END)
+            messagebox.showinfo(t("delete_user_themes_title"), t("msg_user_themes_deleted", count=len(selected)), parent=dialog)
+            dialog.destroy()
+
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        ttk.Button(btn_frame, text=t("delete_user_themes_btn"), command=on_delete).pack(fill=tk.X)
+
 
     # ------------------------------------------------------------------
     # Завершение

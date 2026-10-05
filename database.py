@@ -703,8 +703,20 @@ class PuzzleDatabase:
             color=row["Color"],
         )
 
-    def close(self) -> None:
-        self.conn.close()
+    def delete_user_themes(self, names: List[str]) -> int:
+        cursor = self.conn.cursor()
+        placeholders = ",".join(["?"] * len(names))
+        cursor.execute(
+            f"DELETE FROM puzzle_user_themes WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))",
+            names,
+        )
+        cursor.execute(
+            f"DELETE FROM user_themes WHERE name IN ({placeholders})",
+            names,
+        )
+        self.conn.commit()
+        self._invalidate_cache()
+        return cursor.rowcount
 
     def verify_import(self, csv_path: Optional[str] = None) -> dict:
         """

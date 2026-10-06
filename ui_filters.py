@@ -304,17 +304,17 @@ class PuzzleFiltersMixin:
 
     def _update_stats(self) -> None:
         stats = self.db.get_stats(self._filter_values)
-        moves_stats = ", ".join(
-            f"{moves}: {cnt}" for moves, cnt in sorted(stats["by_moves"].items())
-        )
+        moves_items = list(sorted(stats["by_moves"].items()))
 
-        # В БД поле Color хранит цвет стороны, которая только что сделала ход.
-        # Поэтому:
-        #   Color = 'b' -> черные только что ходили -> сейчас ход белых
-        #   Color = 'w' -> белые только что ходили -> сейчас ход черных
-        # Без фильтра по цвету показываем статистику как есть.
-        # При фильтре по цвету инвертируем, потому что пользователь выбирает
-        # текущего игрока, а в БД хранится противоположный цвет.
+        if len(moves_items) <= 2:
+            moves_stats = ", ".join(f"{moves}: {cnt}" for moves, cnt in moves_items)
+            moves_text = f"{t('stats_by_moves', moves=moves_stats)}"
+        else:
+            mid = (len(moves_items) + 1) // 2
+            first = ", ".join(f"{moves}: {cnt}" for moves, cnt in moves_items[:mid])
+            second = ", ".join(f"{moves}: {cnt}" for moves, cnt in moves_items[mid:])
+            moves_text = f"{t('stats_by_moves', moves=first)}\n{second}"
+
         white = stats["white"]
         black = stats["black"]
         if self._filter_values.get("color"):
@@ -323,7 +323,7 @@ class PuzzleFiltersMixin:
         text = (
             f"{t('stats_white', white=white)}\n"
             f"{t('stats_black', black=black)}\n"
-            f"{t('stats_by_moves', moves=moves_stats)}"
+            f"{moves_text}"
         )
         self.stats_label.config(text=text)
 

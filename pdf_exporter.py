@@ -30,12 +30,28 @@ from constants import (
 
 logger = logging.getLogger(__name__)
 
-_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-try:
-    pdfmetrics.registerFont(TTFont("DejaVuSans", _FONT_PATH))
-    _FONT_NAME = "DejaVuSans"
-except Exception:
-    _FONT_NAME = "Helvetica"
+
+def _register_cyrillic_font() -> str:
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        str(Path(__file__).with_name("DejaVuSans.ttf")),
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont("AppCyrillicFont", path))
+                return "AppCyrillicFont"
+            except Exception:
+                continue
+    return "Helvetica"
+
+
+_FONT_NAME = _register_cyrillic_font()
 
 
 class PuzzlePdfExporter:

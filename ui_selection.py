@@ -98,6 +98,7 @@ class PuzzleSelectionMixin:
         dialog.geometry(DOCX_DIALOG_GEOMETRY)
         dialog.transient(self.root)
         dialog.grab_set()
+        self._center_dialog(dialog)
 
         ttk.Label(dialog, text="Тема:").pack(anchor=tk.W, padx=10, pady=(10, 0))
         topic_entry = ttk.Entry(dialog)

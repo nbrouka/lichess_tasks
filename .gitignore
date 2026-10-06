@@ -21,6 +21,8 @@ puzzles.db
 *.db
 .piece_cache/
 f0qUr.png
+*.db-shm
+*.db-wal
 
 # Generated files
 *.docx

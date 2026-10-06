@@ -118,6 +118,12 @@ class PuzzleDocxExporter:
         section.left_margin = Cm(DOCX_MARGIN_CM)
         section.right_margin = Cm(DOCX_MARGIN_CM)
 
+        try:
+            style = doc.styles['Normal']
+            style.font.name = 'Arial'
+        except Exception:
+            pass
+
         temp_files = []
         try:
             for page_idx in range(0, len(self.puzzles), DOCX_PUZZLES_PER_PAGE):
@@ -195,7 +201,7 @@ class PuzzleDocxExporter:
                     run.add_picture(img_path, width=Emu(DOCX_IMAGE_WIDTH_EMU))
                     run.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                     run.font.size = Pt(9)
-                    run.font.name = 'Cambria'
+                    run.font.name = 'Arial'
 
                     p = cell.add_paragraph()
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -203,7 +209,8 @@ class PuzzleDocxExporter:
                     p.paragraph_format.space_after = Pt(DOCX_CAPTION_SPACE_AFTER_PT)
                     p.paragraph_format.line_spacing = Pt(DOCX_PARAGRAPH_LINE_SPACING_PT)
                     color_text = current_player_color_name(puzzle.color)
-                    p.add_run(f"№{global_idx}. {color_text}")
+                    run = p.add_run(f"№{global_idx}. {color_text}")
+                    run.font.name = 'Arial'
 
             logger.info("Saving document path=%s", path)
             doc.save(path)

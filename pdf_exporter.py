@@ -5,6 +5,7 @@ PDF exporter for Lichess puzzles.
 import logging
 import os
 import tempfile
+from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm as _cm
@@ -33,13 +34,15 @@ logger = logging.getLogger(__name__)
 
 def _register_cyrillic_font() -> str:
     candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        str(Path(__file__).with_name("DejaVuSans.ttf")),
+        str(Path(__file__).with_name("fonts") / "Arial.ttf"),
         "C:\\Windows\\Fonts\\arial.ttf",
         "C:\\Windows\\Fonts\\segoeui.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/Library/Fonts/Arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
+        str(Path(__file__).with_name("DejaVuSans.ttf")),
     ]
     for path in candidates:
         if os.path.exists(path):

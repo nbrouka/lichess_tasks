@@ -383,7 +383,6 @@ class PuzzleApp(
         dialog.minsize(360, 320)
         dialog.transient(self.root)
         dialog.grab_set()
-        self._center_dialog(dialog)
 
         ttk.Label(dialog, text=t("delete_user_themes_select")).pack(anchor=tk.W, padx=10, pady=(10, 0))
 
@@ -420,6 +419,8 @@ class PuzzleApp(
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         ttk.Button(btn_frame, text=t("delete_user_themes_btn"), command=on_delete).pack(fill=tk.X)
+
+        self._center_dialog(dialog)
 
 
     # ------------------------------------------------------------------

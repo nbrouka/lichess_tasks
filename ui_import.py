@@ -40,6 +40,8 @@ class PuzzleImportMixin:
         status_label = ttk.Label(progress_win, text=t("progress_preparing"))
         status_label.pack(pady=(0, 10))
 
+        self._center_dialog(progress_win)
+
         total_lines = sum(
             1 for _ in open(self.db.csv_path, "r", encoding="utf-8")
         ) - 1

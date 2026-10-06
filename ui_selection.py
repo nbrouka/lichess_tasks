@@ -98,7 +98,6 @@ class PuzzleSelectionMixin:
         dialog.geometry(DOCX_DIALOG_GEOMETRY)
         dialog.transient(self.root)
         dialog.grab_set()
-        self._center_dialog(dialog)
 
         ttk.Label(dialog, text="Тема:").pack(anchor=tk.W, padx=10, pady=(10, 0))
         topic_entry = ttk.Entry(dialog)
@@ -144,6 +143,8 @@ class PuzzleSelectionMixin:
                 messagebox.showerror("Ошибка", str(exc), parent=dialog)
 
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
+
+        self._center_dialog(dialog)
 
     def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
         """

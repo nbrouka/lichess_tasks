@@ -2,7 +2,6 @@
 Константы и общие настройки приложения Lichess Puzzle Viewer.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -361,7 +360,8 @@ FILTER_DEBOUNCE_MS = 300
 # ---------------------------------------------------------------------------
 # Миниатюры
 # ---------------------------------------------------------------------------
-THUMBNAIL_SQUARE_SIZE = 28
+THUMBNAIL_SQUARE_SIZE = 32
+PDF_THUMBNAIL_SQUARE_SIZE = 20
 
 # ---------------------------------------------------------------------------
 # Сеть
@@ -410,6 +410,16 @@ DOCX_CELL_BORDER_VAL = "nil"
 DOCX_CELL_BORDER_SZ = 0
 DOCX_PARAGRAPH_SPACE_BEFORE_PT = 2
 DOCX_PARAGRAPH_LINE_SPACING_PT = 6
+
+PDF_PUZZLES_PER_PAGE = 12
+PDF_MARGIN_CM = 1.0
+PDF_TABLE_ROWS = 4
+PDF_TABLE_COLS = 3
+PDF_COL_WIDTH_CM = 6.0
+PDF_ROW_HEIGHT_PT = 180
+PDF_HEADER_LEFT_COL_WIDTH_CM = 2.0
+PDF_HEADER_RIGHT_COL_WIDTH_CM = 17.0
+PDF_ANSWER_MARGIN_CM = 1.0
 
 # ---------------------------------------------------------------------------
 # SQL

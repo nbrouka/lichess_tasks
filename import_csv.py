@@ -2,7 +2,6 @@
 """CLI script for importing lichess_db_puzzle.csv into local SQLite database."""
 
 import sys
-import time
 from pathlib import Path
 
 from database import PuzzleDatabase
@@ -20,7 +19,7 @@ def main() -> int:
 
     if not Path(csv_path).exists():
         print(f"Error: CSV file not found: {csv_path}")
-        print(f"Usage: python import_csv.py [csv_path] [db_path]")
+        print("Usage: python import_csv.py [csv_path] [db_path]")
         return 1
 
     print(f"Importing from: {csv_path}")

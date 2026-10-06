@@ -46,7 +46,6 @@ class PuzzleFiltersMixin:
 
         min_var = tk.IntVar(value=from_)
         max_var = tk.IntVar(value=to)
-        default_var = tk.IntVar(value=default)
 
         min_scale = ttk.Scale(
             frame, from_=from_, to=to, orient=tk.HORIZONTAL,

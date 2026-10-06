@@ -5,14 +5,12 @@ DOCX exporter for Lichess puzzles.
 import logging
 import os
 import tempfile
-from pathlib import Path
 
 from docx import Document
 from docx.shared import Cm, Emu, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-from PIL import Image
 
 from typing import Any, Optional, Sequence
 
@@ -138,11 +136,13 @@ class PuzzleDocxExporter:
                 cell_left = header_table.cell(0, 0)
                 cell_left.text = f"Лист {sheet_num}"
                 cell_left.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+                cell_left.paragraphs[0].paragraph_format.space_before = Pt(0)
                 cell_left.paragraphs[0].paragraph_format.space_after = Pt(0)
 
                 cell_center = header_table.cell(0, 1)
                 cell_center.text = self.topic
                 cell_center.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cell_center.paragraphs[0].paragraph_format.space_before = Pt(0)
                 cell_center.paragraphs[0].paragraph_format.space_after = Pt(0)
 
                 for row in header_table.rows:

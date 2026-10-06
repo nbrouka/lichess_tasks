@@ -92,7 +92,7 @@ class PuzzleImportMixin:
                     )
                 self.root.after(0, lambda: messagebox.showinfo(t("about_title"), msg))
             except Exception as exc:
-                self.root.after(0, lambda: messagebox.showerror(
+                self.root.after(0, lambda exc=exc: messagebox.showerror(
                     t("msg_import_error"), str(exc)
                 ))
             finally:

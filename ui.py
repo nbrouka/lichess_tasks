@@ -5,24 +5,16 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
-import threading
-import json
+import os
 from pathlib import Path
 from typing import List, Optional
 
 from database import PuzzleDatabase, Puzzle
 from constants import (
-    APP_NAME, VERSION, DEFAULT_CSV_PATH, DB_FILENAME,
-    BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
-    THEME_TRANSLATIONS, THEME_RU_TO_EN,
-    CATEGORY_TRANSLATIONS, CATEGORY_RU_TO_EN,
-    UI_TRANSLATIONS, LANG, t, COLOR_RU_TO_EN,
-    WINDOW_GEOMETRY, WINDOW_MINSIZE,
-    FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
-    EXCLUDE_THEMES_LISTBOX_HEIGHT,
-    THEMES_LISTBOX_HEIGHT,
-    COMBOBOX_WIDTH,
-    COLOR_COMBOBOX_WIDTH,
+    DEFAULT_CSV_PATH, DB_FILENAME, THEME_TRANSLATIONS, t,
+    WINDOW_MINSIZE, FILTERS_PANEL_WIDTH, SELECTED_PANEL_WIDTH,
+    EXCLUDE_THEMES_LISTBOX_HEIGHT, THEMES_LISTBOX_HEIGHT,
+    COMBOBOX_WIDTH, COLOR_COMBOBOX_WIDTH,
     ICON_WINDOWS, ICON_LINUX,
 )
 
@@ -344,7 +336,7 @@ class PuzzleApp(
 
         dialog = tk.Toplevel(self.root)
         dialog.title("Детали задачи")
-        dialog.geometry("520x260")
+        dialog.geometry("520x360")
         dialog.configure(padx=10, pady=10)
         dialog.transient(self.root)
         dialog.grab_set()
@@ -353,9 +345,23 @@ class PuzzleApp(
         text = tk.Text(dialog, wrap=tk.WORD, relief=tk.FLAT)
         text.pack(fill=tk.BOTH, expand=True)
         text.insert("1.0", details)
+
+        if puzzle.game_url:
+            url_start = text.search(puzzle.game_url, "1.0", stopindex="end")
+            if url_start:
+                url_end = f"{url_start}+{len(puzzle.game_url)}c"
+                text.tag_add("url", url_start, url_end)
+                text.tag_config("url", foreground="blue", underline=True)
+                text.tag_bind("url", "<Button-1>", lambda event, url=puzzle.game_url: self._open_url(url))
+                text.config(cursor="hand2")
+
         text.config(state=tk.DISABLED)
 
         self._center_dialog(dialog)
+
+    def _open_url(self, url: str) -> None:
+        import webbrowser
+        webbrowser.open(url)
 
     def _center_dialog(self, dialog: tk.Toplevel) -> None:
         dialog.update_idletasks()
@@ -426,7 +432,7 @@ class PuzzleApp(
 
 def main() -> None:
     root = tk.Tk()
-    app = PuzzleApp(root)
+    _app = PuzzleApp(root)
     root.mainloop()
 
 

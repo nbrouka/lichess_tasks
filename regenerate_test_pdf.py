@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Regenerate test DOCX files from puzzles.db."""
+"""Regenerate test PDF files from puzzles.db."""
 
 import os
-import sqlite3
 from pathlib import Path
 
 from database import PuzzleDatabase, Puzzle
 from ui_selection import PuzzleSelectionMixin
-from docx_exporter import PuzzleDocxExporter
+from pdf_exporter import PuzzlePdfExporter
 
 
 class Regenerator(PuzzleSelectionMixin):
@@ -47,7 +46,7 @@ class Regenerator(PuzzleSelectionMixin):
 
     def export(self, puzzles, topic: str, path: str):
         self.selected_puzzles = puzzles
-        self._create_sheets_docx(path, topic)
+        self._create_sheets_pdf(path, topic)
 
 
 def main():
@@ -58,9 +57,9 @@ def main():
     reg = Regenerator(db_path)
 
     sets = [
-        (12, "Test 12 puzzles", out_base / "Test 12 puzzles.docx"),
-        (25, "Test 25 puzzles", out_base / "Test 25 puzzles.docx"),
-        (12, "Test Topic", out_base / "Test Topic.docx"),
+        (12, "Test 12 puzzles", out_base / "Test 12 puzzles.pdf"),
+        (25, "Test 25 puzzles", out_base / "Test 25 puzzles.pdf"),
+        (12, "Test Topic", out_base / "Test Topic.pdf"),
     ]
 
     for count, topic, path in sets:
@@ -71,8 +70,8 @@ def main():
 
     # Also regenerate named files referenced in repo root
     extra = [
-        (12, "Test 12 puzzles", out_base / "test_12_puzzles_fit_one_page.docx"),
-        (25, "Test 25 puzzles", out_base / "test_25_puzzles_create_three_pages.docx"),
+        (12, "Test 12 puzzles", out_base / "test_12_puzzles_fit_one_page.pdf"),
+        (25, "Test 25 puzzles", out_base / "test_25_puzzles_create_three_pages.pdf"),
     ]
     for count, topic, path in extra:
         print(f"Generating {path} ({count} puzzles)...")

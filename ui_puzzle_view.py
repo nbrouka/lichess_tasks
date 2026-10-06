@@ -2,11 +2,9 @@
 Mixin for puzzle display, navigation, and solution stepping in Lichess Puzzle Viewer.
 """
 
-import tkinter as tk
 from tkinter import messagebox, filedialog
-from typing import Optional
 
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 from database import Puzzle
 from board_renderer import render_puzzle, save_png

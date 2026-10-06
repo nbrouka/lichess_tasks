@@ -3,14 +3,13 @@
 Использует предварительно сгенерированные PNG-фигуры из папки pieces/.
 """
 
-from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 import chess
 
 from constants import (
-    SQUARE_SIZE, BOARD_SIZE, COLOR_LIGHT, COLOR_DARK,
-    PIECE_UNICODE, COLOR_COORDINATES, PIECES_DIR, _app_dir,
+    SQUARE_SIZE, COLOR_LIGHT, COLOR_DARK, PIECE_UNICODE,
+    COLOR_COORDINATES, PIECES_DIR, _app_dir,
 )
 
 _PIECE_MAP = {

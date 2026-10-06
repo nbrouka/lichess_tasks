@@ -15,6 +15,8 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image
 from docx import Document
+import pdfplumber
+import fitz
 
 from constants import (
     UI_TRANSLATIONS,
@@ -830,6 +832,207 @@ class TestDocxExport(unittest.TestCase):
         self.assertEqual(self.app.category_cb.get(), "Фазы")
         self.assertEqual(self.app.themes_listbox.curselection(), (0,))
         self.assertEqual(self.app.user_themes_var.get(), "")
+
+
+class TestPdfExport(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.mkdtemp()
+        cls.db_path = ":memory:"
+        cls.csv_path = os.path.join(cls.temp_dir, "test.csv")
+
+    def setUp(self):
+        self.db = PuzzleDatabase(db_path=self.db_path, csv_path=self.csv_path)
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif,http://example.com,Scandinavian Defense,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,1700,20,95,300,opening,http://example.com,Italian Game,2023-01-03",
+            "00004,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5 g1f3,1800,35,70,400,motif fork,http://example.com,Italian Game,2023-01-04",
+            "00005,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 e2e4,1900,40,60,500,opening,http://example.com,Scandinavian Defense,2023-01-05",
+            "00006,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,2000,45,50,600,motif,http://example.com,Italian Game,2023-01-06",
+            "00007,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3 b8c6,2100,50,40,700,opening,http://example.com,Scandinavian Defense,2023-01-07",
+            "00008,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,2200,55,30,800,motif fork,http://example.com,Italian Game,2023-01-08",
+            "00009,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,2300,60,20,900,opening,http://example.com,Italian Game,2023-01-09",
+            "00010,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 e2e4,2400,65,10,1000,motif,http://example.com,Scandinavian Defense,2023-01-10",
+            "00011,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,2500,70,5,1100,opening,http://example.com,Italian Game,2023-01-11",
+            "00012,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,2600,75,3,1200,motif fork,http://example.com,Italian Game,2023-01-12",
+            "00013,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,2700,80,2,1300,opening,http://example.com,Scandinavian Defense,2023-01-13",
+            "00014,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,2800,85,1,1400,motif,http://example.com,Italian Game,2023-01-14",
+            "00015,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,2900,90,0,1500,opening,http://example.com,Italian Game,2023-01-15",
+            "00016,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,3000,95,0,1600,motif fork,http://example.com,Scandinavian Defense,2023-01-16",
+            "00017,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 e2e4,3100,100,0,1700,opening,http://example.com,Italian Game,2023-01-17",
+            "00018,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,3200,10,0,1800,motif,http://example.com,Italian Game,2023-01-18",
+            "00019,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,3300,15,0,1900,opening,http://example.com,Scandinavian Defense,2023-01-19",
+            "00020,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,3400,20,0,2000,motif fork,http://example.com,Italian Game,2023-01-20",
+            "00021,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,3500,25,0,2100,opening,http://example.com,Italian Game,2023-01-21",
+            "00022,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,3600,30,0,2200,motif,http://example.com,Scandinavian Defense,2023-01-22",
+            "00023,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 e2e4,3700,35,0,2300,opening,http://example.com,Italian Game,2023-01-23",
+            "00024,rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1,e7e5,3800,40,0,2400,motif fork,http://example.com,Italian Game,2023-01-24",
+            "00025,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,3900,45,0,2500,opening,http://example.com,Scandinavian Defense,2023-01-25",
+        ])
+        self.db.import_csv()
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path)
+
+    def tearDown(self):
+        try:
+            self.app.destroy()
+        except Exception:
+            self.root.destroy()
+        self.db.conn.close()
+
+    def _write_csv(self, rows):
+        with open(self.csv_path, "w", encoding="utf-8", newline="") as f:
+            f.write("PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags,DailyDate\n")
+            for row in rows:
+                f.write(row + "\n")
+
+    def _load_puzzles_from_db(self, limit=25):
+        cursor = self.db.conn.execute(
+            "SELECT PuzzleId, FEN, Moves, Rating, RatingDeviation, Popularity, NbPlays, Themes, GameUrl, OpeningTags, DailyDate, Color FROM puzzles LIMIT ?",
+            (limit,),
+        )
+        puzzles = []
+        for row in cursor.fetchall():
+            puzzles.append(Puzzle(
+                puzzle_id=row[0],
+                fen=row[1],
+                moves=row[2],
+                rating=row[3],
+                rating_deviation=row[4],
+                popularity=row[5],
+                nb_plays=row[6],
+                themes=row[7].split() if row[7] else [],
+                game_url=row[8],
+                opening_tags=row[9].split(',') if row[9] else [],
+                daily_date=row[10],
+                color=row[11],
+            ))
+        return puzzles
+
+    def test_12_puzzles_fit_one_page(self):
+        puzzles = self._load_puzzles_from_db(12)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_pdf(path, "Test Topic")
+            with fitz.open(path) as doc:
+                self.assertEqual(len(doc), 1)
+                captions = []
+                for page in doc:
+                    text = page.get_text()
+                    for line in text.splitlines():
+                        line = line.strip()
+                        if line.startswith("№"):
+                            captions.append(line)
+                self.assertEqual(len(captions), 12)
+                for idx, caption in enumerate(captions, 1):
+                    self.assertIn(f"№{idx}.", caption)
+                    expected = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
+                    self.assertIn(expected, caption)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+            answers_path = path.replace(".pdf", "_ответы.pdf")
+            if os.path.exists(answers_path):
+                os.unlink(answers_path)
+
+    def test_25_puzzles_create_three_pages(self):
+        puzzles = self._load_puzzles_from_db(25)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_pdf(path, "Test Topic")
+            with fitz.open(path) as doc:
+                self.assertEqual(len(doc), 3)
+                captions = []
+                for page in doc:
+                    text = page.get_text()
+                    for line in text.splitlines():
+                        line = line.strip()
+                        if line.startswith("№"):
+                            captions.append(line)
+                self.assertEqual(len(captions), 25)
+                for idx, caption in enumerate(captions, 1):
+                    self.assertIn(f"№{idx}.", caption)
+                    expected = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
+                    self.assertIn(expected, caption)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+            answers_path = path.replace(".pdf", "_ответы.pdf")
+            if os.path.exists(answers_path):
+                os.unlink(answers_path)
+
+    def test_answers_pdf_has_all_solutions(self):
+        puzzles = self._load_puzzles_from_db(12)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_pdf(path, "Test Topic")
+            answers_path = path.replace(".pdf", "_ответы.pdf")
+            self.assertTrue(os.path.exists(answers_path))
+            with fitz.open(answers_path) as doc:
+                self.assertEqual(len(doc), 1)
+                text = doc[0].get_text()
+                self.assertIn("Ответы", text)
+                paragraphs = [line.strip() for line in text.splitlines() if line.strip()]
+                self.assertEqual(len(paragraphs), 13)
+                for idx, paragraph in enumerate(paragraphs[1:], 1):
+                    self.assertIn(f"№{idx}.", paragraph)
+                    expected_color = "Ход белых" if puzzles[idx - 1].color == "b" else "Ход черных"
+                    self.assertIn(expected_color, paragraph)
+                    for move in puzzles[idx - 1].solution.split():
+                        self.assertIn(move, paragraph)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+            answers_path = path.replace(".pdf", "_ответы.pdf")
+            if os.path.exists(answers_path):
+                os.unlink(answers_path)
+
+    def test_topic_saved_to_db_after_pdf_export(self):
+        puzzles = self._load_puzzles_from_db(3)
+        self.app.selected_puzzles = puzzles
+        fd, path = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        try:
+            with patch('ui_selection.render_puzzle', return_value=Image.new('RGB', (224, 224), '#FFF')):
+                self.app._create_sheets_pdf(path, "Мой пользовательский лист")
+
+            cursor = self.app.db.conn.cursor()
+            cursor.execute("SELECT id, name FROM user_themes WHERE name = ?", ("Мой пользовательский лист",))
+            row = cursor.fetchone()
+            self.assertIsNotNone(row)
+            theme_id = row[0]
+            self.assertEqual(row[1], "Мой пользовательский лист")
+
+            cursor.execute(
+                "SELECT puzzle_id FROM puzzle_user_themes WHERE theme_id = ?",
+                (theme_id,),
+            )
+            linked_ids = [r[0] for r in cursor.fetchall()]
+            expected_ids = [p.puzzle_id for p in puzzles]
+            self.assertEqual(sorted(linked_ids), sorted(expected_ids))
+
+            self.assertEqual(self.app.user_themes_var.get(), "")
+            self.assertTrue(
+                any("Мой пользовательский лист" in v for v in self.app.user_themes_cb["values"]),
+                msg=f"Expected theme in values, got {self.app.user_themes_cb['values']}",
+            )
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+            answers_path = path.replace(".pdf", "_ответы.pdf")
+            if os.path.exists(answers_path):
+                os.unlink(answers_path)
 
 
 class TestLogArchive(unittest.TestCase):

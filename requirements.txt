@@ -1,5 +1,6 @@
 pillow
 python-docx
+reportlab
 chess
 requests
 zstandard

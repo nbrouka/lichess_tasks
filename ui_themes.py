@@ -7,7 +7,7 @@ from pathlib import Path
 import json
 from typing import Optional
 
-from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, CATEGORY_RU_TO_EN, t, get_themes_file
+from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, t, get_themes_file
 
 
 class PuzzleThemesMixin:
@@ -23,8 +23,8 @@ class PuzzleThemesMixin:
                 cat_name = cat.get("name", "")
                 ru_name = CATEGORY_TRANSLATIONS.get(cat_name, cat_name)
                 themes = {}
-                for t in cat.get("themes", []):
-                    themes[t.get("name", "")] = t
+                for theme in cat.get("themes", []):
+                    themes[theme.get("name", "")] = theme
                 self.themes_data[ru_name] = themes
         except Exception:
             pass

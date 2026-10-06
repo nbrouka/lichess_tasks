@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Archive docx_export.log and remove old archives older than retention days."""
 
-import os
 import shutil
 import time
 from pathlib import Path

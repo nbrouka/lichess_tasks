@@ -6,15 +6,15 @@ import logging
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox, filedialog
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 from board_renderer import render_puzzle
 from constants import t, THUMBNAIL_SQUARE_SIZE, DOCX_DIALOG_GEOMETRY, current_player_color_name, DOCX_ANSWER_MARGIN_CM, DOCX_ANSWER_SPACE_AFTER_PT, DELETE_BUTTON_WIDTH, DELETE_BUTTON_HEIGHT
 from database import Puzzle
 from docx_exporter import PuzzleDocxExporter
+from pdf_exporter import PuzzlePdfExporter
 from docx import Document
 from docx.shared import Cm, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 LOG_PATH = Path(__file__).parent / "docx_export.log"
 logger = logging.getLogger("docx_export")
@@ -83,18 +83,18 @@ class PuzzleSelectionMixin:
 
     def _create_sheets_dialog(self) -> None:
         """
-        Открывает диалог экспорта выбранных задач в DOCX.
+        Открывает диалог экспорта выбранных задач в PDF.
 
         Пользователь вводит тему и выбирает путь для сохранения.
         После экспорта тема автоматически сохраняется в пользовательские темы БД.
         """
-        logger.info("Open DOCX export dialog, selected puzzles count=%d", len(self.selected_puzzles))
+        logger.info("Open PDF export dialog, selected puzzles count=%d", len(self.selected_puzzles))
         if not self.selected_puzzles:
             messagebox.showinfo(t("about_title"), t("msg_no_selected_puzzles"))
             return
 
         dialog = tk.Toplevel(self.root)
-        dialog.title("Создать листы")
+        dialog.title("Создать PDF")
         dialog.geometry(DOCX_DIALOG_GEOMETRY)
         dialog.transient(self.root)
         dialog.grab_set()
@@ -104,53 +104,45 @@ class PuzzleSelectionMixin:
         topic_entry.pack(fill=tk.X, padx=10, pady=(0, 10))
         topic_entry.focus_set()
 
-        path_var = tk.StringVar()
+        pdf_path_var = tk.StringVar()
 
-        def choose_path():
+        def choose_pdf_path():
             topic = topic_entry.get().strip()
-            default_name = f"{topic}.docx" if topic else "puzzles.docx"
+            default_name = f"{topic}.pdf" if topic else "puzzles.pdf"
             path = filedialog.asksaveasfilename(
-                defaultextension=".docx",
-                filetypes=[("DOCX files", "*.docx")],
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
                 initialfile=default_name,
                 parent=dialog,
             )
             if path:
-                path_var.set(path)
+                pdf_path_var.set(path)
 
-        ttk.Label(dialog, text="Сохранить в:").pack(anchor=tk.W, padx=10)
-        path_frame = ttk.Frame(dialog)
-        path_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
-        path_entry = ttk.Entry(path_frame, textvariable=path_var, state="readonly")
-        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(path_frame, text="...", width=3, command=choose_path).pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(dialog, text="Сохранить PDF в:").pack(anchor=tk.W, padx=10)
+        pdf_path_frame = ttk.Frame(dialog)
+        pdf_path_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        pdf_path_entry = ttk.Entry(pdf_path_frame, textvariable=pdf_path_var, state="readonly")
+        pdf_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(pdf_path_frame, text="...", width=3, command=choose_pdf_path).pack(side=tk.LEFT, padx=(5, 0))
 
         def save():
             topic = topic_entry.get().strip()
-            path = path_var.get().strip()
-            if not path:
+            pdf_path = pdf_path_var.get().strip()
+            if not pdf_path:
                 messagebox.showwarning("Внимание", "Выберите место для сохранения.", parent=dialog)
                 return
             try:
-                logger.info("Start DOCX generation path=%s topic=%s puzzles=%d", path, topic, len(self.selected_puzzles))
-                self._create_sheets_docx(path, topic)
-                logger.info("DOCX generated successfully path=%s", path)
-                messagebox.showinfo("Готово", f"Файл сохранён: {path}", parent=dialog)
+                logger.info("Start PDF generation path=%s topic=%s puzzles=%d", pdf_path, topic, len(self.selected_puzzles))
+                self._create_sheets_pdf(pdf_path, topic)
+                logger.info("PDF generated successfully path=%s", pdf_path)
+                messagebox.showinfo("Готово", f"Файл сохранён: {pdf_path}", parent=dialog)
                 dialog.destroy()
                 self._clear_selection()
             except Exception as exc:
-                logger.exception("DOCX generation failed path=%s error=%s", path, exc)
+                logger.exception("Generation failed path=%s error=%s", pdf_path, exc)
                 messagebox.showerror("Ошибка", str(exc), parent=dialog)
 
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
-
-    def _on_selected_canvas_resize(self, event: tk.Event) -> None:
-        """
-        Обновляет ширину внутреннего окна при изменении размера канваса.
-
-        Нужно, чтобы скроллбар работал корректно при изменении размера окна.
-        """
-        self.selected_canvas.itemconfig(self._selected_window_id, width=event.width)
 
     def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
         """
@@ -165,9 +157,9 @@ class PuzzleSelectionMixin:
 
     def _create_sheets_docx(self, path: str, topic: str) -> None:
         """
-        Создаёт DOCX с задачами и отдельный DOCX с ответами.
+        Creates DOCX with puzzles and separate DOCX with answers.
 
-        Также сохраняет тему в пользовательские темы БД, если она указана.
+        Also saves topic to user themes DB if specified.
         """
         puzzles = list(self.selected_puzzles)
         exporter = PuzzleDocxExporter(puzzles, topic)
@@ -175,6 +167,14 @@ class PuzzleSelectionMixin:
 
         answers_path = path.replace(".docx", "_ответы.docx")
         self._create_answers_docx(answers_path, topic, puzzles)
+
+        if topic:
+            self._save_topic_to_db(topic)
+
+    def _create_sheets_pdf(self, path: str, topic: str) -> None:
+        puzzles = list(self.selected_puzzles)
+        exporter = PuzzlePdfExporter(puzzles, topic)
+        exporter.export_with_answers(path)
 
         if topic:
             self._save_topic_to_db(topic)
@@ -221,26 +221,26 @@ class PuzzleSelectionMixin:
 
         Если черные ходят первыми, добавляет "..." после номера хода.
         """
-        moves = puzzle.solution.split()
+        moves = puzzle.moves.split()
         if not moves:
             return ""
 
-        is_black_first = puzzle.color == "b"
+        is_black_first = puzzle.color == "w"
         parts = []
         move_number = 1
         i = 0
 
         if is_black_first:
-            parts.append(f"{move_number}. ... {moves[i]}")
+            parts.append(f"{move_number}. ...{moves[i]}")
             i = 1
             move_number = 2
 
         while i < len(moves):
             if i + 1 < len(moves):
-                parts.append(f"{move_number}. {moves[i]} {moves[i + 1]}")
+                parts.append(f"{move_number}.{moves[i]} {moves[i + 1]}")
                 i += 2
             else:
-                parts.append(f"{move_number}. {moves[i]}")
+                parts.append(f"{move_number}.{moves[i]}")
                 i += 1
             move_number += 1
 

@@ -144,8 +144,6 @@ class PuzzleSelectionMixin:
 
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
 
-        self._center_dialog(dialog)
-
     def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
         """
         Удаляет задачу из выбранных и разрушает соответствующий виджет.

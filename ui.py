@@ -311,8 +311,6 @@ class PuzzleApp(
         text.insert("1.0", t("about_text"))
         text.config(state=tk.DISABLED)
 
-        self._center_dialog(dialog)
-
     def _show_puzzle_details(self) -> None:
         if self.current_index is None or not self.filtered_puzzles:
             messagebox.showinfo(t("about_title"), t("msg_select_puzzle"))
@@ -340,7 +338,6 @@ class PuzzleApp(
         dialog.configure(padx=10, pady=10)
         dialog.transient(self.root)
         dialog.grab_set()
-        self._center_dialog(dialog)
 
         text = tk.Text(dialog, wrap=tk.WORD, relief=tk.FLAT)
         text.pack(fill=tk.BOTH, expand=True)
@@ -357,19 +354,9 @@ class PuzzleApp(
 
         text.config(state=tk.DISABLED)
 
-        self._center_dialog(dialog)
-
     def _open_url(self, url: str) -> None:
         import webbrowser
         webbrowser.open(url)
-
-    def _center_dialog(self, dialog: tk.Toplevel) -> None:
-        dialog.update_idletasks()
-        width = dialog.winfo_width()
-        height = dialog.winfo_height()
-        x = max(0, (self.root.winfo_screenwidth() - width) // 2)
-        y = max(0, (self.root.winfo_screenheight() - height) // 2)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
 
     def _delete_user_themes_dialog(self) -> None:
         user_themes = self.db.get_user_themes()
@@ -419,8 +406,6 @@ class PuzzleApp(
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         ttk.Button(btn_frame, text=t("delete_user_themes_btn"), command=on_delete).pack(fill=tk.X)
-
-        self._center_dialog(dialog)
 
 
     # ------------------------------------------------------------------

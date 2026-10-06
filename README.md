@@ -15,9 +15,9 @@
 - Пагинация результатов и debounce фильтров
 - Пошаговое проигрывание решения с подсветкой хода
 - Рендер доски: PIL юникод-фигуры или SVG с кэшем из Lichess CDN
-- Выбор задач и экспорт в DOCX:
+- Выбор задач и экспорт в DOCX и PDF:
   - 12 задач на страницу, сетка 4×3
-  - Автосоздание файла ответов
+  - Автосоздание отдельного файла ответов
   - Сохранение пользовательских тем в БД
 - Двуязычный интерфейс: русский/английский
 
@@ -30,14 +30,14 @@ https://github.com/nbrouka/lichess_tasks.git
 - Python 3.9+
 - Tkinter
 - SQLite
-- Pillow, python-chess, requests, python-docx, pyinstaller
+- Pillow, python-chess, requests, python-docx, reportlab, pyinstaller
 
 ## Быстрый старт
 
 ### Автоматическая установка
 
 Скрипт сам установит:
-- Системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
+- Системные зависимости (`python3-tk`, `libjpeg`, `zstd`, `curl`)
 - Виртуальное окружение Python
 - Python-зависимости из `requirements.txt` (включая PyInstaller)
 - Скачает `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/
@@ -108,10 +108,10 @@ sudo apt install python3-venv python3-pip python3-tk \
                  libjpeg-dev zlib1g-dev
 
 # Fedora
-sudo dnf install python3-tkinter libjpeg-turbo-devel zlib-devel cairo-devel
+sudo dnf install python3-tkinter libjpeg-turbo-devel zlib-devel
 
 # Arch
-sudo pacman -S tk libjpeg-turbo cairo
+sudo pacman -S tk libjpeg-turbo
 ```
 
 ### Windows
@@ -122,7 +122,7 @@ sudo pacman -S tk libjpeg-turbo cairo
 ### macOS
 
 ```bash
-brew install python-tk cairo
+brew install python-tk
 ```
 
 ## База задач
@@ -161,7 +161,7 @@ python import_csv.py lichess_db_puzzle.csv puzzles.db
 
 Скрипт сравнивает количество задач в CSV и в локальной БД и выводит результат проверки.
 
-## Логи экспорта DOCX
+## Логи экспорта DOCX и PDF
 
 Файл `docx_export.log` создаётся автоматически в папке проекта.
 
@@ -209,10 +209,11 @@ python -m venv .venv
 
 ### Примечание
 
-Тесты DOCX-экспорта не пишут файлы в папку проекта: они используют `tempfile.mkstemp()` и удаляют временные файлы после проверки. Для перегенерации тестовых DOCX используйте скрипт:
+Тесты DOCX/PDF-экспорта не пишут файлы в папку проекта: они используют `tempfile.mkstemp()` и удаляют временные файлы после проверки. Для перегенерации тестовых DOCX/PDF используйте скрипты:
 
 ```bash
 PYTHONPATH=. xvfb-run -a python regenerate_test_docx.py
+PYTHONPATH=. xvfb-run -a python regenerate_test_pdf.py
 ```
 
 ---
@@ -264,7 +265,7 @@ https://github.com/nbrouka/lichess_tasks.git
 ### Автоматическая установка
 
 Скрипты (`install.sh`, `install.ps1`, `install.bat`) автоматически:
-- Установят системные зависимости (`python3-tk`, `libjpeg`, `cairo`, `zstd`, `curl`)
+- Установят системные зависимости (`python3-tk`, `libjpeg`, `zstd`, `curl`)
 - Создадут виртуальное окружение Python
 - Установят Python-зависимости из `requirements.txt` (включая PyInstaller)
 - Скачают `lichess_db_puzzle.csv` (~2GB) с https://database.lichess.org/ и распакуют
@@ -464,9 +465,12 @@ python3 main.py
 - `database.py` — SQLite база, фильтрация, кэш
 - `board_renderer.py` — ренер доски
 - `docx_exporter.py` — экспорт в DOCX
+- `pdf_exporter.py` — экспорт в PDF
 - `constants.py` — константы, переводы
 - `log_archive.py` — архивирование логов
 - `tests.py` — тесты
+- `regenerate_test_docx.py` — перегенерация тестовых DOCX
+- `regenerate_test_pdf.py` — перегенерация тестовых PDF
 
 ## Лицензия
 

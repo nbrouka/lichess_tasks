@@ -22,22 +22,22 @@ install_system_deps() {
         echo "Detected Debian/Ubuntu. Installing system packages..."
         sudo apt-get update -qq
         sudo apt-get install -y -qq python3-venv python3-pip python3-tk \
-                                  libjpeg-dev zlib1g-dev libcairo2 \
+                                  libjpeg-dev zlib1g-dev \
                                   zstd curl
     elif command -v dnf &> /dev/null; then
         echo "Detected Fedora. Installing system packages..."
         sudo dnf install -y python3-tkinter libjpeg-turbo-devel zlib-devel \
-                           cairo-devel zstd curl
+                           zstd curl
     elif command -v pacman &> /dev/null; then
         echo "Detected Arch Linux. Installing system packages..."
-        sudo pacman -S --noconfirm tk libjpeg-turbo cairo zstd curl
+        sudo pacman -S --noconfirm tk libjpeg-turbo zstd curl
     elif command -v brew &> /dev/null; then
         echo "Detected macOS. Installing system packages..."
-        brew install python-tk cairo zstd curl
+        brew install python-tk zstd curl
     else
         echo "WARNING: Unknown package manager. Please install manually:"
         echo "  - Python 3.9+ with tkinter"
-        echo "  - libjpeg, zlib, cairo"
+        echo "  - libjpeg, zlib"
         echo "  - zstd, curl"
     fi
 }

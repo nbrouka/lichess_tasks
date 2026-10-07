@@ -3,6 +3,7 @@
 Поддерживает пакетный импорт CSV и эффективную фильтрацию.
 """
 
+import logging
 import sqlite3
 import csv
 import time
@@ -16,6 +17,8 @@ from constants import (
     SQL_INDEXES, IMPORT_BATCH_SIZE,
     IMPORT_PROGRESS_INTERVAL, FILTER_DEFAULT_LIMIT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Puzzle:
@@ -136,6 +139,7 @@ class PuzzleDatabase:
         - Один проход по CSV
         - Создание индексов после вставки
         """
+        logger.info("Import started csv=%s db=%s", self.csv_path, self.db_path)
         cursor = self.conn.cursor()
 
         # WAL-режим позволяет читать таблицу во время записи, что важно для UI.
@@ -150,6 +154,7 @@ class PuzzleDatabase:
         cursor.execute("DROP TABLE IF EXISTS puzzle_themes")
         cursor.execute("DROP TABLE IF EXISTS puzzles")
         self._create_schema()
+        logger.info("Schema created")
 
         batch_size = IMPORT_BATCH_SIZE
         batch: List[tuple] = []
@@ -227,9 +232,12 @@ class PuzzleDatabase:
             status_callback(f"Creating indexes (0/{len(SQL_INDEXES)})")
         self.create_indexes(progress_callback=lambda idx: status_callback(f"Creating indexes ({idx}/{len(SQL_INDEXES)})") if status_callback else None)
         self._invalidate_cache()
+        logger.info("Indexes created count=%d", len(SQL_INDEXES))
 
         if progress_callback:
             progress_callback(i)
+
+        logger.info("Import finished total_inserted=%d", total_inserted)
 
     # ------------------------------------------------------------------
     # Справочники

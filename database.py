@@ -377,20 +377,15 @@ class PuzzleDatabase:
         """
         Строит SQL-условие для фильтрации по нескольким темам.
 
-        При нескольких темах требуется, чтобы задача содержала ВСЕ указанные темы.
-        Это реализуется через подзапрос с GROUP BY и HAVING COUNT(DISTINCT Theme) = N.
+        При нескольких темах задача должна содержать ХОТЯ БЫ ОДНУ из указанных тем.
+        Это реализуется через простой IN-подзапрос.
         """
         if not themes:
             return "", []
-        if len(themes) == 1:
-            return (
-                "PuzzleId IN (SELECT PuzzleId FROM puzzle_themes WHERE Theme = ?)",
-                [themes[0]],
-            )
         placeholders = ",".join(["?"] * len(themes))
         return (
-            f"PuzzleId IN (SELECT PuzzleId FROM puzzle_themes WHERE Theme IN ({placeholders}) GROUP BY PuzzleId HAVING COUNT(DISTINCT Theme) = ?)",
-            list(themes) + [len(themes)],
+            f"PuzzleId IN (SELECT PuzzleId FROM puzzle_themes WHERE Theme IN ({placeholders}))",
+            list(themes),
         )
 
     def _build_filter_conditions(
@@ -689,20 +684,11 @@ class PuzzleDatabase:
         )
         if theme_only:
             unique_themes = list(dict.fromkeys(themes))
-            if len(unique_themes) == 1:
-                cursor = self.conn.cursor()
-                cursor.execute(
-                    "SELECT COUNT(DISTINCT PuzzleId) FROM puzzle_themes WHERE Theme = ?",
-                    (unique_themes[0],),
-                )
-                return cursor.fetchone()[0]
             placeholders = ",".join(["?"] * len(unique_themes))
             cursor = self.conn.cursor()
             cursor.execute(
-                f"SELECT COUNT(*) FROM (SELECT PuzzleId FROM puzzle_themes "
-                f"WHERE Theme IN ({placeholders}) GROUP BY PuzzleId "
-                f"HAVING COUNT(DISTINCT Theme) = ?)",
-                list(unique_themes) + [len(unique_themes)],
+                f"SELECT COUNT(DISTINCT PuzzleId) FROM puzzle_themes WHERE Theme IN ({placeholders})",
+                list(unique_themes),
             )
             return cursor.fetchone()[0]
 

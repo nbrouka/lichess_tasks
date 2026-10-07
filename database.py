@@ -466,9 +466,10 @@ class PuzzleDatabase:
             if unique_user_themes:
                 placeholders = ",".join(["?"] * len(unique_user_themes))
                 where_clause += (
-                    f" AND PuzzleId IN ("
-                    f"SELECT puzzle_id FROM puzzle_user_themes "
-                    f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                    f" AND EXISTS ("
+                    f"SELECT 1 FROM puzzle_user_themes put "
+                    f"WHERE put.puzzle_id = puzzles.PuzzleId "
+                    f"AND put.theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
                     f")"
                 )
                 params.extend(unique_user_themes)
@@ -479,9 +480,10 @@ class PuzzleDatabase:
             if unique_exclude:
                 placeholders = ",".join(["?"] * len(unique_exclude))
                 where_clause += (
-                    f" AND PuzzleId NOT IN ("
-                    f"SELECT puzzle_id FROM puzzle_user_themes "
-                    f"WHERE theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
+                    f" AND NOT EXISTS ("
+                    f"SELECT 1 FROM puzzle_user_themes put "
+                    f"WHERE put.puzzle_id = puzzles.PuzzleId "
+                    f"AND put.theme_id IN (SELECT id FROM user_themes WHERE name IN ({placeholders}))"
                     f")"
                 )
                 params.extend(unique_exclude)

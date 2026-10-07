@@ -371,7 +371,7 @@ class PuzzleDatabase:
             return "", []
         if len(themes) == 1:
             return (
-                "EXISTS (SELECT 1 FROM puzzle_themes pt WHERE pt.PuzzleId = puzzles.PuzzleId AND pt.Theme = ?)",
+                "PuzzleId IN (SELECT PuzzleId FROM puzzle_themes WHERE Theme = ?)",
                 [themes[0]],
             )
         placeholders = ",".join(["?"] * len(themes))
@@ -492,7 +492,7 @@ class PuzzleDatabase:
 
     def _has_moves_count_column(self) -> bool:
         cursor = self.conn.cursor()
-        cursor.execute("PRAGMA table_info(puzzles)")
+        cursor.execute("PRAGMA table_xinfo(puzzles)")
         return any(row[1] == "moves_count" for row in cursor.fetchall())
 
     def _build_cache_key(self, **kwargs) -> str:

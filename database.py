@@ -92,6 +92,7 @@ class PuzzleDatabase:
         self._stats_cache: Dict[str, tuple[float, Any]] = {}
         self._cache_ttl = 60.0
         self._filter_cache: Dict[str, tuple[float, Any]] = {}
+        self._theme_counts_cache: Optional[dict] = None
 
     # ------------------------------------------------------------------
     # Схема
@@ -248,9 +249,13 @@ class PuzzleDatabase:
         return [r[0] for r in cursor.fetchall()]
 
     def get_theme_counts(self) -> dict:
+        if self._theme_counts_cache is not None:
+            return self._theme_counts_cache
         cursor = self.conn.cursor()
         cursor.execute("SELECT Theme, COUNT(*) FROM puzzle_themes GROUP BY Theme")
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        result = {row[0]: row[1] for row in cursor.fetchall()}
+        self._theme_counts_cache = result
+        return result
 
     def get_all_openings(self) -> List[str]:
         cursor = self.conn.cursor()
@@ -527,6 +532,7 @@ class PuzzleDatabase:
     def _invalidate_cache(self) -> None:
         self._filter_cache.clear()
         self._stats_cache.clear()
+        self._theme_counts_cache = None
 
     def filter_puzzles(
         self,

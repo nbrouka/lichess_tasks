@@ -481,4 +481,5 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_user_themes_name ON user_themes(name);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_puzzle_theme ON puzzle_user_themes(puzzle_id, theme_id);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_puzzle_theme ON puzzle_themes(PuzzleId, Theme);",
+    "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_theme_puzzle ON puzzle_user_themes(theme_id, puzzle_id);",
 ]

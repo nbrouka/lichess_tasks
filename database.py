@@ -667,6 +667,45 @@ class PuzzleDatabase:
             exclude_user_themes=exclude_user_themes,
         )
 
+        # Optimization: если единственный значимый фильтр — темы, считаем
+        # напрямую из puzzle_themes, без джойна к puzzles. Это ускоряет
+        # первый выбор темы на порядок.
+        theme_only = (
+            themes
+            and not puzzle_id_contains
+            and not rating_min
+            and not rating_max
+            and not popularity_min
+            and not popularity_max
+            and not nb_plays_min
+            and not nb_plays_max
+            and not color
+            and not opening_contains
+            and not daily_date_from
+            and not daily_date_to
+            and moves_exact is None
+            and not user_themes
+            and not exclude_user_themes
+        )
+        if theme_only:
+            unique_themes = list(dict.fromkeys(themes))
+            if len(unique_themes) == 1:
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(DISTINCT PuzzleId) FROM puzzle_themes WHERE Theme = ?",
+                    (unique_themes[0],),
+                )
+                return cursor.fetchone()[0]
+            placeholders = ",".join(["?"] * len(unique_themes))
+            cursor = self.conn.cursor()
+            cursor.execute(
+                f"SELECT COUNT(*) FROM (SELECT PuzzleId FROM puzzle_themes "
+                f"WHERE Theme IN ({placeholders}) GROUP BY PuzzleId "
+                f"HAVING COUNT(DISTINCT Theme) = ?)",
+                list(unique_themes) + [len(unique_themes)],
+            )
+            return cursor.fetchone()[0]
+
         sql = f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}"
 
         cursor = self.conn.cursor()

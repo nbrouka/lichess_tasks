@@ -234,6 +234,9 @@ UI_TRANSLATIONS = {
         "stats_white": "Ход белых: {white}",
         "stats_black": "Ход черных: {black}",
         "stats_by_moves": "По ходам: {moves}",
+        "goto_puzzle_label": "Перейти к задаче:",
+        "goto_puzzle_btn": "Перейти",
+        "goto_puzzle_invalid": "Введите корректный номер задачи.",
     },
     "en": {
         "app_title": "Lichess Puzzle Viewer",

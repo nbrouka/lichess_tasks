@@ -2,10 +2,13 @@
 Графический интерфейс приложения Lichess Puzzle Viewer на Tkinter.
 """
 
+import logging
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import os
+import threading
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -16,7 +19,10 @@ from constants import (
     EXCLUDE_THEMES_LISTBOX_HEIGHT, THEMES_LISTBOX_HEIGHT,
     COMBOBOX_WIDTH, COLOR_COMBOBOX_WIDTH,
     ICON_WINDOWS, ICON_LINUX,
+    FILTER_PAGE_SIZE,
 )
+
+logger = logging.getLogger(__name__)
 
 from ui_puzzle_view import PuzzleViewMixin
 from ui_filters import PuzzleFiltersMixin
@@ -220,8 +226,21 @@ class PuzzleApp(
         self.image_label.configure(anchor="center")
         self.image_label.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
 
-        details_btn = ttk.Button(center, text="См. детали задачи", command=self._show_puzzle_details)
-        details_btn.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        details_frame = ttk.Frame(center)
+        details_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+
+        details_btn = ttk.Button(details_frame, text="См. детали задачи", command=self._show_puzzle_details)
+        self.details_btn = details_btn
+        details_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+
+        goto_frame = ttk.Frame(details_frame)
+        goto_frame.pack(side=tk.RIGHT)
+
+        ttk.Label(goto_frame, text=t("goto_puzzle_label")).pack(side=tk.LEFT, padx=(0, 2))
+        self.goto_entry = ttk.Entry(goto_frame, width=5)
+        self.goto_entry.pack(side=tk.LEFT, padx=(0, 2))
+        self.goto_entry.bind("<Return>", lambda e: self._goto_puzzle())
+        ttk.Button(goto_frame, text=t("goto_puzzle_btn"), command=self._goto_puzzle).pack(side=tk.LEFT)
 
         sol_frame = ttk.Frame(center)
         sol_frame.grid(row=2, column=0, sticky="ew", pady=(0, 5))
@@ -353,6 +372,97 @@ class PuzzleApp(
                 text.config(cursor="hand2")
 
         text.config(state=tk.DISABLED)
+
+    def _goto_puzzle(self) -> None:
+        t0 = time.monotonic()
+        if not getattr(self, "_filter_total", 0):
+            messagebox.showinfo(t("about_title"), t("status_not_found"))
+            return
+
+        raw = self.goto_entry.get().strip()
+        if not raw:
+            return
+
+        try:
+            num = int(raw)
+        except ValueError:
+            messagebox.showwarning(t("about_title"), t("goto_puzzle_invalid"))
+            return
+
+        total = self._filter_total
+        if num < 1 or num > total:
+            messagebox.showwarning(
+                t("about_title"),
+                f"{t('goto_puzzle_invalid')} (1-{total})",
+            )
+            return
+
+        target_index = num - 1
+
+        if target_index < len(self.filtered_puzzles):
+            self._show_puzzle(target_index)
+            self.goto_entry.delete(0, tk.END)
+            elapsed = time.monotonic() - t0
+            logger.info("Goto puzzle %d: already loaded, took %.3fs", num, elapsed)
+            return
+
+        self.status_label.config(text=t("status_loading"))
+        self.root.update_idletasks()
+
+        def run():
+            t_query = time.monotonic()
+            try:
+                needed = target_index + 1
+                offset = len(self.filtered_puzzles)
+                limit = needed - offset
+
+                batch = self.db.filter_puzzles(
+                    **self._filter_values,
+                    limit=limit,
+                    offset=offset,
+                    return_total=False,
+                )
+                self.filtered_puzzles = list(self.filtered_puzzles) + list(batch)
+                self._filter_offset = offset + len(batch)
+
+                elapsed_query = time.monotonic() - t_query
+                elapsed = time.monotonic() - t0
+                logger.info(
+                    "Goto puzzle %d: loaded %d puzzles in %.3fs (query_time=%.3fs)",
+                    num, len(batch), elapsed, elapsed_query,
+                )
+
+                if target_index < len(self.filtered_puzzles):
+                    self.root.after(0, lambda: self._on_goto_loaded(target_index, elapsed))
+                else:
+                    self.root.after(0, lambda: self.status_label.config(text=t("status_not_found")))
+            except Exception as exc:
+                logger.exception("Goto puzzle %d failed: %s", num, exc)
+                self.root.after(0, lambda: self.status_label.config(text=f"Error: {exc}"))
+
+        if getattr(self, "_goto_thread", None) and self._goto_thread.is_alive():
+            logger.warning("Goto already in progress, ignoring request")
+            return
+
+        self._goto_thread = threading.Thread(target=run, daemon=True)
+        self._goto_thread.start()
+
+    def _on_goto_loaded(self, target_index: int, elapsed: float) -> None:
+        self.status_label.config(
+            text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total)
+        )
+        if target_index < len(self.filtered_puzzles):
+            t_render = time.monotonic()
+            self._show_puzzle(target_index)
+            t_render = time.monotonic() - t_render
+            logger.info("Goto render: _show_puzzle took %.3fs", t_render)
+        else:
+            self.status_label.config(text=t("status_not_found"))
+        self.goto_entry.delete(0, tk.END)
+        logger.info(
+            "Goto complete: target_index=%d, loaded=%d, elapsed=%.3fs",
+            target_index, len(self.filtered_puzzles), elapsed,
+        )
 
     def _open_url(self, url: str) -> None:
         import webbrowser

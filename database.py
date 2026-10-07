@@ -501,6 +501,17 @@ class PuzzleDatabase:
         cursor.execute("PRAGMA table_xinfo(puzzles)")
         return any(row[1] == "moves_count" for row in cursor.fetchall())
 
+    def get_puzzle_by_offset(self, filters: dict, offset: int) -> Optional["Puzzle"]:
+        """Fast path: fetch exactly one puzzle by offset without total count."""
+        where_clause, params = self._build_filter_conditions(**filters)
+        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT 1 OFFSET ?"
+        cursor = self.conn.cursor()
+        cursor.execute(sql, params + [offset])
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_puzzle(row)
+
     def _build_cache_key(self, **kwargs) -> str:
         parts = []
         for key in sorted(kwargs):

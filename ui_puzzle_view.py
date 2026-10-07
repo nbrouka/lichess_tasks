@@ -21,7 +21,8 @@ class PuzzleViewMixin:
         self._update_solution_board(puzzle)
         self._update_solution_step_label(puzzle)
         self._update_info_text(puzzle)
-
+        if hasattr(self, "details_btn"):
+            self.details_btn.config(text=f"См. детали задачи №{index + 1}")
         self.status_label.config(
             text=t("puzzle_info", index=index + 1, total=self._filter_total)
         )
@@ -61,6 +62,8 @@ class PuzzleViewMixin:
         self.image_label.configure(image="", text=t("no_data"))
         self.image_label.image = None
         self._puzzle_details_text = t("no_data")
+        if hasattr(self, "details_btn"):
+            self.details_btn.config(text="См. детали задачи")
 
     def _prev_solution_step(self) -> None:
         if self.current_index is None or not self.filtered_puzzles:

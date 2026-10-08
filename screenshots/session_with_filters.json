@@ -1,0 +1,11 @@
+{
+  "filters": {
+    "color": "w",
+    "moves_exact": 3
+  },
+  "last_puzzle_id": null,
+  "selected_ids": [],
+  "filter_offset": 0,
+  "filter_total": 0,
+  "current_index": null
+}

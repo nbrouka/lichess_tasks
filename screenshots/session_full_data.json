@@ -1,0 +1,19 @@
+{
+  "filters": {
+    "color": "b",
+    "themes": [
+      "mate"
+    ],
+    "user_themes": [
+      "test 555"
+    ]
+  },
+  "last_puzzle_id": "00008",
+  "selected_ids": [
+    "00008",
+    "0000D"
+  ],
+  "filter_offset": 50,
+  "filter_total": 1759497,
+  "current_index": 10
+}

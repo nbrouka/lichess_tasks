@@ -26,23 +26,7 @@ if not logger.handlers:
 
 
 class PuzzleSelectionMixin:
-    def _add_to_selected(self) -> None:
-        """
-        Добавляет текущую задачу в панель выбранных.
-
-        - Не добавляет дубликаты по FEN.
-        - Создаёт миниатюру доски и кнопку удаления.
-        - Обновляет scrollregion канваса, чтобы появилась прокрутка.
-        """
-        if self.current_index is None or not self.filtered_puzzles:
-            return
-        puzzle = self.filtered_puzzles[self.current_index]
-
-        if any(p.fen == puzzle.fen for p in self.selected_puzzles):
-            return
-
-        self.selected_puzzles.append(puzzle)
-
+    def _create_selected_widget(self, puzzle: Puzzle) -> None:
         square_size = THUMBNAIL_SQUARE_SIZE
         thumb = render_puzzle(puzzle.fen, puzzle.moves, square_size=square_size, move_index=1, show_coordinates=False)
         photo = ImageTk.PhotoImage(thumb)
@@ -66,9 +50,21 @@ class PuzzleSelectionMixin:
 
         self.selected_inner.grid_rowconfigure(row, weight=0, minsize=thumb.size[1] + 20)
         self.selected_inner.grid_columnconfigure(0, weight=0, minsize=thumb.size[0])
+
+    def _add_to_selected(self) -> None:
+        if self.current_index is None or not self.filtered_puzzles:
+            return
+        puzzle = self.filtered_puzzles[self.current_index]
+
+        if any(p.fen == puzzle.fen for p in self.selected_puzzles):
+            return
+
+        self.selected_puzzles.append(puzzle)
+        self._create_selected_widget(puzzle)
         self.selected_inner.update_idletasks()
         self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
         self._update_selected_title()
+        self._save_session()
 
     def _update_selected_title(self) -> None:
         self.selected_title_label.config(text=f"{t('selected_title')} ({len(self.selected_puzzles)})")
@@ -145,15 +141,13 @@ class PuzzleSelectionMixin:
         ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
 
     def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
-        """
-        Удаляет задачу из выбранных и разрушает соответствующий виджет.
-        """
         if puzzle in self.selected_puzzles:
             self.selected_puzzles.remove(puzzle)
         wrapper.destroy()
         self.selected_inner.update_idletasks()
         self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
         self._update_selected_title()
+        self._save_session()
 
     def _create_sheets_docx(self, path: str, topic: str) -> None:
         """
@@ -253,3 +247,4 @@ class PuzzleSelectionMixin:
         self.selected_inner.update_idletasks()
         self.selected_canvas.configure(scrollregion=self.selected_canvas.bbox("all"))
         self._update_selected_title()
+        self._save_session()

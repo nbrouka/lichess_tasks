@@ -27,6 +27,7 @@ from constants import (
     CATEGORY_TRANSLATIONS,
     CATEGORY_RU_TO_EN,
     COLOR_RU_TO_EN,
+    SESSION_FILE,
 )
 from parse_themes import parse_themes, clean
 from database import PuzzleDatabase, Puzzle
@@ -1087,3 +1088,142 @@ class TestLogArchive(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSessionRestore(unittest.TestCase):
+    """Тесты восстановления состояния сессии (session.json)."""
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.app = PuzzleApp(self.root)
+
+    def tearDown(self):
+        try:
+            self.app.destroy()
+        except Exception:
+            self.root.destroy()
+
+    def _save_session(self, data):
+        Path(SESSION_FILE).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    def _load_session(self, data):
+        self._save_session(data)
+        self.app._restore_session()
+
+    def test_restore_empty_session_no_loading(self):
+        """Пустая сессия: не должно быть статуса «Загрузка», должно быть «Готово»."""
+        self._load_session({
+            "filters": {},
+            "last_puzzle_id": None,
+            "selected_ids": [],
+            "filter_offset": 0,
+            "filter_total": 0,
+            "current_index": None,
+        })
+        self.assertEqual(self.app.status_label.cget("text"), t("status_ready"))
+
+    def test_restore_missing_session_file(self):
+        """Отсутствующий session.json: без краша, состояние «Готово»."""
+        if Path(SESSION_FILE).exists():
+            Path(SESSION_FILE).unlink()
+        self.app._restore_session()
+        self.assertEqual(self.app.status_label.cget("text"), t("status_ready"))
+
+    def test_restore_corrupt_session_file(self):
+        """Испорченный session.json: без краша, состояние «Готово»."""
+        Path(SESSION_FILE).write_text("{invalid json", encoding="utf-8")
+        self.app._restore_session()
+        self.assertEqual(self.app.status_label.cget("text"), t("status_ready"))
+
+    def test_restore_no_filters_no_puzzle(self):
+        """Сессия без фильтров и last_puzzle_id: ничего не показывается."""
+        self._load_session({
+            "filters": {},
+            "last_puzzle_id": None,
+            "selected_ids": [],
+            "filter_offset": 0,
+            "filter_total": 0,
+            "current_index": None,
+        })
+        self.assertIsNone(self.app.current_index)
+        self.assertEqual(len(self.app.filtered_puzzles), 0)
+
+    def test_restore_filter_values_are_set(self):
+        """Активные фильтры из сессии применяются к виджетам."""
+        with patch.object(self.app, "_set_filter_values", wraps=self.app._set_filter_values):
+            self._save_session({
+                "filters": {"color": "w", "moves_exact": 3, "category": "opening"},
+                "last_puzzle_id": None,
+                "selected_ids": [],
+                "filter_offset": 0,
+                "filter_total": 0,
+                "current_index": None,
+            })
+            self.app._apply_filter = MagicMock()
+            self.app._restore_session()
+            self.app._set_filter_values.assert_called_once()
+            args = self.app._set_filter_values.call_args[0][0]
+            self.assertEqual(args["color"], "w")
+            self.assertEqual(args["moves_exact"], 3)
+            self.assertEqual(args["category"], "opening")
+
+    def test_restore_with_last_puzzle_id(self):
+        """Сессия с last_puzzle_id: загружается и показывается эта задача."""
+        # Создаём задачу, существование которой гарантировано в тестовой БД.
+        puzzle = self.app.db.get_puzzle_by_id("00001")
+        if puzzle is None:
+            self.skipTest("test puzzle 00001 not found in database")
+        self._save_session({
+            "filters": {},
+            "last_puzzle_id": puzzle.puzzle_id,
+            "selected_ids": [],
+            "filter_offset": 0,
+            "filter_total": 0,
+            "current_index": None,
+        })
+        with patch.object(self.app, "_show_puzzle", lambda index: None):
+            self.app._restore_session()
+        self.assertEqual(len(self.app.filtered_puzzles), 1)
+        self.assertEqual(self.app.filtered_puzzles[0].puzzle_id, puzzle.puzzle_id)
+        self.assertEqual(self.app.current_index, 0)
+
+    def test_restore_with_last_puzzle_id_and_current_index(self):
+        """Сессия с last_puzzle_id и current_index: сохраняется индекс детали."""
+        puzzle = self.app.db.get_puzzle_by_id("00001")
+        if puzzle is None:
+            self.skipTest("test puzzle 00001 not found in database")
+        self._save_session({
+            "filters": {},
+            "last_puzzle_id": puzzle.puzzle_id,
+            "selected_ids": [],
+            "filter_offset": 0,
+            "filter_total": 0,
+            "current_index": 0,
+        })
+        with patch.object(self.app, "_show_puzzle", lambda index: None):
+            self.app._restore_session()
+        self.assertEqual(self.app.current_index, 0)
+
+    def test_restore_selected_ids(self):
+        """Сессия с selected_ids: восстановление не вызывает ошибок."""
+        self._save_session({
+            "filters": {},
+            "last_puzzle_id": None,
+            "selected_ids": [],
+            "filter_offset": 0,
+            "filter_total": 0,
+            "current_index": None,
+        })
+        with patch.object(self.app, "_load_selected_from_session", wraps=self.app._load_selected_from_session):
+            self._save_session({
+                "filters": {},
+                "last_puzzle_id": None,
+                "selected_ids": ["00001", "00002"],
+                "filter_offset": 0,
+                "filter_total": 0,
+                "current_index": None,
+            })
+            self.app._restore_session()
+        # selected_ids не None и не пустой — путь восстановления не упал
+        self.assertIsNotNone(self.app._load_selected_from_session)

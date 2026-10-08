@@ -1,0 +1,32 @@
+{
+  "filters": {
+    "rating_min": null,
+    "rating_max": null,
+    "popularity_min": null,
+    "popularity_max": null,
+    "nb_plays_min": null,
+    "nb_plays_max": null,
+    "moves_exact": 3,
+    "themes": [
+      "anastasiaMate"
+    ],
+    "color": "w",
+    "user_themes": null,
+    "exclude_user_themes": [
+      "44",
+      "999",
+      "Test Topic",
+      "test 555"
+    ]
+  },
+  "last_puzzle_id": "hDUHz",
+  "selected_ids": [
+    "hDUHz",
+    "orOg7",
+    "2uePX",
+    "4B9fi"
+  ],
+  "filter_offset": 51,
+  "filter_total": 799,
+  "current_index": 50
+}

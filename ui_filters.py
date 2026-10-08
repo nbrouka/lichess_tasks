@@ -2,6 +2,7 @@
 Mixin for filter widgets, filter application, and stats in Lichess Puzzle Viewer.
 """
 
+import logging
 import tkinter as tk
 from tkinter import ttk
 import threading
@@ -11,6 +12,8 @@ from constants import (
     THEME_RU_TO_EN, COLOR_RU_TO_EN, t,
     FILTER_PAGE_SIZE, FILTER_DEBOUNCE_MS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PuzzleFiltersMixin:
@@ -210,24 +213,30 @@ class PuzzleFiltersMixin:
             self.root.after_cancel(self._filter_after_id)
 
         def _do_apply():
-            self._filter_values = self._get_filter_values()
-            self._filter_offset = 0
-            self._set_filtering_status(True)
-            self.root.update_idletasks()
+            try:
+                self._filter_values = self._get_filter_values()
+                self._filter_offset = 0
+                self._set_filtering_status(True)
+                self.root.update_idletasks()
 
-            def run():
-                # filter_puzzles с return_total=True возвращает (puzzles, total_count).
-                puzzles, count = self.db.filter_puzzles(
-                    **self._filter_values,
-                    limit=FILTER_PAGE_SIZE,
-                    offset=0,
-                    return_total=True,
-                )
-                # Обновление UI должно происходить в основном потоке.
-                self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
+                def run():
+                    try:
+                        puzzles, count = self.db.filter_puzzles(
+                            **self._filter_values,
+                            limit=FILTER_PAGE_SIZE,
+                            offset=0,
+                            return_total=True,
+                        )
+                        self.root.after(0, lambda: self._on_filter_complete(puzzles, count))
+                    except Exception:
+                        self.root.after(0, lambda: self._on_filter_complete([], 0))
 
-            self._filter_thread = threading.Thread(target=run, daemon=True)
-            self._filter_thread.start()
+                self._filter_thread = threading.Thread(target=run, daemon=True)
+                self._filter_thread.start()
+            except Exception:
+                if getattr(self, "_restoring_session", False):
+                    self._restoring_session = False
+                    self._save_session()
 
         # Debounce: реальный запуск откладывается на FILTER_DEBOUNCE_MS.
         self._filter_after_id = self.root.after(FILTER_DEBOUNCE_MS, _do_apply)
@@ -252,6 +261,7 @@ class PuzzleFiltersMixin:
         self._filtering_dots_id = self.root.after(250, self._update_filtering_dots)
 
     def _on_filter_complete(self, puzzles, count: int) -> None:
+        logger.info("_on_filter_complete: puzzles=%d, count=%d", len(puzzles), count)
         self._set_filtering_status(False)
 
         self.filtered_puzzles = puzzles
@@ -260,12 +270,85 @@ class PuzzleFiltersMixin:
         self.current_index = 0 if puzzles else None
         self.count_label.config(text=t("found_label", count=count))
         if puzzles:
-            self._show_puzzle(0)
-            self.status_label.config(text=t("status_loaded", count=len(puzzles), total=count))
-            self._update_stats()
+            if not getattr(self, "_restoring_session", False):
+                self._show_puzzle(0)
+                self.status_label.config(text=t("status_loaded", count=len(puzzles), total=count))
+                self._update_stats()
         else:
             self._clear_display()
             self.status_label.config(text=t("status_not_found"))
+
+        pending_last_puzzle_id = getattr(self, "_pending_last_puzzle_id", None)
+        pending_selected_ids = getattr(self, "_pending_selected_ids", []) or []
+        self._pending_last_puzzle_id = None
+        self._pending_selected_ids = []
+        logger.info("_on_filter_complete: pending_last_puzzle_id=%s filter_values=%s", pending_last_puzzle_id, getattr(self, "_filter_values", None))
+
+        if pending_selected_ids:
+            self._load_selected_from_session(pending_selected_ids)
+
+        if pending_last_puzzle_id and self.filtered_puzzles:
+            for i, p in enumerate(self.filtered_puzzles):
+                if p.puzzle_id == pending_last_puzzle_id:
+                    self._show_puzzle(i)
+                    self._restoring_session = False
+                    self._save_session()
+                    self.status_label.config(
+                        text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total)
+                    )
+                    self._update_stats()
+                    return
+
+        logger.info("_on_filter_complete: checking _load_until_found condition pending=%s filter_values=%s", pending_last_puzzle_id, getattr(self, "_filter_values", None))
+        if pending_last_puzzle_id and self._filter_values:
+            saved_index = getattr(self, "_pending_current_index", None)
+            logger.info("_on_filter_complete: starting _load_until_found saved_index=%s filter_values=%s", saved_index, self._filter_values)
+
+            def _load_until_found():
+                try:
+                    if saved_index is not None and 0 <= saved_index < self._filter_total:
+                        puzzle = self.db.get_puzzle_by_offset(self._filter_values, saved_index)
+                        if puzzle and puzzle.puzzle_id == pending_last_puzzle_id:
+                            self.filtered_puzzles.append(puzzle)
+                            self._filter_offset = len(self.filtered_puzzles)
+                            self.root.after(0, lambda: self._on_pending_found(len(self.filtered_puzzles) - 1))
+                            return
+                    self.root.after(0, lambda: self._on_pending_not_found(saved_index))
+                except Exception:
+                    logger.exception("_load_until_found failed")
+                    self.root.after(0, lambda: self._on_pending_not_found(saved_index))
+
+            threading.Thread(target=_load_until_found, daemon=True).start()
+            return
+
+        self._restoring_session = False
+        if puzzles:
+            self._show_puzzle(0)
+            self.status_label.config(text=t("status_loaded", count=len(puzzles), total=count))
+            self._update_stats()
+        self._save_session()
+
+    def _on_pending_found(self, index: int) -> None:
+        logger.info("_on_pending_found: index=%d", index)
+        self._restoring_session = False
+        self._show_puzzle(index)
+        self.status_label.config(
+            text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total)
+        )
+        self._update_stats()
+        self._save_session()
+
+    def _on_pending_not_found(self, saved_index: Optional[int]) -> None:
+        logger.info("_on_pending_not_found: saved_index=%s", saved_index)
+        self._restoring_session = False
+        if self.filtered_puzzles and saved_index is not None:
+            idx = min(saved_index, len(self.filtered_puzzles) - 1)
+            self._show_puzzle(idx)
+        self.status_label.config(
+            text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total)
+        )
+        self._update_stats()
+        self._save_session()
 
     def _load_more_puzzles(self) -> None:
         if not self._filter_values:
@@ -326,6 +409,10 @@ class PuzzleFiltersMixin:
             f"{moves_text}"
         )
         self.stats_label.config(text=text)
+
+    def _reset_filters_and_save(self) -> None:
+        self._reset_filters()
+        self._save_session()
 
     def _reset_filters(self) -> None:
         """

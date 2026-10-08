@@ -512,6 +512,14 @@ class PuzzleDatabase:
             return None
         return self._row_to_puzzle(row)
 
+    def get_puzzle_by_id(self, puzzle_id: str) -> Optional["Puzzle"]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM puzzles WHERE PuzzleId = ?", (puzzle_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_puzzle(row)
+
     def _build_cache_key(self, **kwargs) -> str:
         parts = []
         for key in sorted(kwargs):
@@ -606,23 +614,18 @@ class PuzzleDatabase:
             exclude_user_themes=exclude_user_themes,
         )
 
-        # При return_total=True используем оконную функцию COUNT(*) OVER()
-        # для получения общего количества задач в одном запросе.
-        # Это эффективнее, чем делать отдельный COUNT(*) запрос.
+        # При return_total=True сначала получаем общее количество задач
+        # отдельным COUNT(*), а потом сами задачи. Это значительно быстрее,
+        # чем использовать оконную функцию COUNT(*) OVER() на больших объёмах.
         if return_total:
-            sql = f"""
-                WITH filtered AS (
-                    SELECT *, COUNT(*) OVER() AS total_count
-                    FROM puzzles
-                    WHERE {where_clause}
-                    ORDER BY Rating DESC
-                )
-                SELECT * FROM filtered
-                LIMIT ? OFFSET ?
-            """
+            count_sql = f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}"
+            cursor = self.conn.cursor()
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
         else:
-            sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT ? OFFSET ?"
+            total = 0
 
+        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         cursor = self.conn.cursor()
@@ -630,12 +633,8 @@ class PuzzleDatabase:
         rows = cursor.fetchall()
 
         puzzles = [self._row_to_puzzle(row) for row in rows]
-        if return_total:
-            total = rows[0]["total_count"] if rows else 0
-            self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
-            return puzzles, total
-        self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, 0))
-        return puzzles
+        self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
+        return (puzzles, total) if return_total else puzzles
 
     def count_filtered(
         self,
@@ -800,3 +799,6 @@ class PuzzleDatabase:
     def ensure_imported(self, progress_callback=None) -> None:
         if not self.is_imported():
             self.import_csv(progress_callback)
+
+    def close(self) -> None:
+        self.conn.close()

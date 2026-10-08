@@ -112,8 +112,17 @@ class PuzzleViewMixin:
             self._show_puzzle(self.current_index + 1)
         elif self._filter_offset < self._filter_total:
             self._load_more_puzzles()
-            if self.current_index is not None and self.current_index < len(self.filtered_puzzles) - 1:
-                self._show_puzzle(self.current_index + 1)
+            # _load_more_puzzles is async; poll until the new batch arrives.
+            self._pending_next_after_id = self.root.after(100, self._try_next_after_load)
+
+    def _try_next_after_load(self) -> None:
+        if getattr(self, "_load_more_thread", None) and self._load_more_thread.is_alive():
+            self._pending_next_after_id = self.root.after(100, self._try_next_after_load)
+            return
+        if self.current_index is not None and self.current_index < len(self.filtered_puzzles) - 1:
+            self._show_puzzle(self.current_index + 1)
+        else:
+            self.status_label.config(text=t("status_not_found"))
 
     def _save_png(self) -> None:
         if self.current_index is None:

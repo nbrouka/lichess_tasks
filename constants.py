@@ -33,6 +33,8 @@ ICON_WINDOWS = "icon.ico"
 ICON_LINUX = "icon.png"
 THEMES_FILE = str(_app_dir() / "lichess_themes.json")
 PIECES_DIR = "pieces"
+SESSION_FILE = str(_app_dir() / "session.json")
+APP_LOG_FILE = str(_app_dir() / "docx_export.log")
 
 
 def get_themes_file() -> str:

@@ -505,13 +505,62 @@ class TestDatabaseFilter(unittest.TestCase):
 
     def test_filter_by_theme(self):
         self._write_csv([
-            "00001,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
-            "00002,rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
+            "00001,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,100,opening,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1,e7e5 g1f3,1600,25,90,200,motif fork,http://example.com,Scandinavian Defense,2023-01-02",
         ])
         self.db.import_csv()
         puzzles = self.db.filter_puzzles(themes=["fork"], limit=10)
         self.assertEqual(len(puzzles), 1)
         self.assertEqual(puzzles[0].puzzle_id, "00002")
+
+    def test_filter_by_theme_sorted_by_rating_then_popularity(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,50,100,fork,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1000,25,90,200,fork,http://example.com,Italian Game,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,80,150,fork,http://example.com,Italian Game,2023-01-03",
+            "00004,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1200,25,10,50,fork,http://example.com,Italian Game,2023-01-04",
+            "00005,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1200,25,,60,fork,http://example.com,Italian Game,2023-01-05",
+        ])
+        self.db.import_csv()
+        self.assertTrue(self.db._theme_ranking_ready)
+        puzzles = self.db.filter_puzzles(themes=["fork"], limit=10)
+        self.assertEqual(
+            [p.puzzle_id for p in puzzles],
+            ["00002", "00004", "00005", "00003", "00001"],
+        )
+        _, total = self.db.filter_puzzles(themes=["fork"], limit=2, return_total=True)
+        self.assertEqual(total, 5)
+        self.assertEqual(total, self.db.count_filtered(themes=["fork"]))
+
+    def test_filter_by_multiple_themes_no_duplicates(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,50,100,fork pin,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1000,25,90,200,pin,http://example.com,Italian Game,2023-01-02",
+            "00003,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1600,25,10,50,motif,http://example.com,Italian Game,2023-01-03",
+        ])
+        self.db.import_csv()
+        puzzles = self.db.filter_puzzles(themes=["fork", "pin"], limit=10)
+        ids = [p.puzzle_id for p in puzzles]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(ids, ["00002", "00001"])
+
+    def test_theme_filter_fallback_without_denormalized_columns(self):
+        self._write_csv([
+            "00001,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1500,30,50,100,fork,http://example.com,Italian Game,2023-01-01",
+            "00002,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1000,25,90,200,fork,http://example.com,Italian Game,2023-01-02",
+        ])
+        self.db.import_csv()
+        # Имитируем старую БД: убираем денормализацию и covering-индекс.
+        cursor = self.db.conn.cursor()
+        cursor.execute("DROP INDEX idx_puzzle_themes_theme_rating")
+        cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Rating")
+        cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Popularity")
+        self.db.conn.commit()
+        self.db._theme_ranking_ready = self.db._check_theme_ranking()
+        self.assertFalse(self.db._theme_ranking_ready)
+        puzzles = self.db.filter_puzzles(themes=["fork"], limit=10)
+        self.assertEqual([p.puzzle_id for p in puzzles], ["00002", "00001"])
+        self.assertEqual(self.db.count_filtered(themes=["fork"]), 2)
 
     def test_filter_by_moves_exact(self):
         self._write_csv([

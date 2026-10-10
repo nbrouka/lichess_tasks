@@ -453,6 +453,8 @@ SQL_CREATE_THEMES = """
 CREATE TABLE IF NOT EXISTS puzzle_themes (
     PuzzleId TEXT NOT NULL,
     Theme TEXT NOT NULL,
+    Rating INTEGER,
+    Popularity INTEGER,
     FOREIGN KEY (PuzzleId) REFERENCES puzzles (PuzzleId)
 );
 """
@@ -479,13 +481,15 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_theme ON puzzle_themes(Theme);",
     "CREATE INDEX IF NOT EXISTS idx_rating ON puzzles(Rating);",
     "CREATE INDEX IF NOT EXISTS idx_popularity ON puzzles(Popularity);",
+    "CREATE INDEX IF NOT EXISTS idx_rating_popularity ON puzzles(Rating, Popularity DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_color_rating_popularity ON puzzles(Color, Rating, Popularity DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_rating ON puzzle_themes(Theme, Rating, Popularity DESC, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_nb_plays ON puzzles(NbPlays);",
     "CREATE INDEX IF NOT EXISTS idx_daily_date ON puzzles(DailyDate);",
     "CREATE INDEX IF NOT EXISTS idx_color ON puzzles(Color);",
     "CREATE INDEX IF NOT EXISTS idx_moves_count ON puzzles(moves_count);",
     "CREATE INDEX IF NOT EXISTS idx_color_moves_count ON puzzles(Color, moves_count);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_puzzle ON puzzle_themes(Theme, PuzzleId);",
-    "CREATE INDEX IF NOT EXISTS idx_puzzles_color_rating ON puzzles(Color, Rating DESC);",
     "CREATE INDEX IF NOT EXISTS idx_user_themes_name ON user_themes(name);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_puzzle_theme ON puzzle_user_themes(puzzle_id, theme_id);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_puzzle_theme ON puzzle_themes(PuzzleId, Theme);",

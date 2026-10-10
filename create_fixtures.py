@@ -119,15 +119,17 @@ def build_fixture_db(rows: list) -> None:
         # В CSV цвет хода = сторона, которая только что сходила.
         color = fen.split()[1] if len(fen.split()) > 1 else "w"
         puzzle_rows.append((*row, color))
+        # Rating/Popularity денормализованы в puzzle_themes для быстрого
+        # theme-only пути выборки (covering-индекс).
         for theme in (row[7] or "").split():
-            theme_rows.append((puzzle_id, theme))
+            theme_rows.append((puzzle_id, theme, row[3], row[5]))
 
     cursor.executemany(
         "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         puzzle_rows,
     )
     cursor.executemany(
-        "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?)",
+        "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?)",
         theme_rows,
     )
     db.conn.commit()

@@ -6,6 +6,9 @@
 
 - Импорт `lichess_db_puzzle.csv` в локальную SQLite базу
 - Пакетная вставка с индексами, WAL-режим, кэш фильтров/статистики
+- Быстрая выборка через покрывающие индексы: темы (с цветом), `moves_exact`,
+  постраничная навигация считаются сканом индекса без сортировки всех совпадений;
+  агрегация статистики считается в фоновом потоке
  - Фильтрация по:
    - цвету хода, точному числу полуходов
    - стандартным темам с категориями (несколько тем = объединение)
@@ -161,6 +164,35 @@ python import_csv.py lichess_db_puzzle.csv puzzles.db
 
 Скрипт сравнивает количество задач в CSV и в локальной БД и выводит результат проверки.
 
+## Миграция существующей БД
+
+При свежей установке ничего делать не нужно: схема, денормализованные столбцы и
+все индексы создаются автоматически во время импорта CSV.
+
+Если БД (`puzzles.db`) осталась от предыдущей версии приложения, примените
+миграцию — она идемпотентна и безопасна для повторного запуска:
+
+```bash
+python migrate_db.py
+```
+
+Что делает скрипт:
+- добавляет столбец `moves_count` в `puzzles` и заполняет его из `Moves`
+- добавляет `sheets_created` в `user_themes` (признак созданных листов)
+- добавляет денормализованные `Rating`, `Popularity`, `Color` в `puzzle_themes`
+  и заполняет их из `puzzles`
+- создаёт покрывающие индексы быстрых путей выборки:
+  - `puzzle_themes(Theme, Rating, Popularity DESC, PuzzleId)` — тема
+  - `puzzle_themes(Theme, Color, Rating, Popularity DESC, PuzzleId)` — тема + цвет
+  - `puzzles(Rating, Popularity DESC, PuzzleId)` — листинг без фильтров
+  - `puzzles(Color, Rating, Popularity DESC, PuzzleId)` — листинг по цвету
+  - `puzzles(moves_count, Rating, Popularity DESC, PuzzleId)` — `moves_exact`
+  - удаляет устаревший `puzzles(Color, Rating DESC)`
+- выполняет `ANALYZE`
+
+БД до миграции продолжает работать: приложение определяет отсутствие новых
+индексов и автоматически использует прежний план запросов.
+
 ## Логи экспорта DOCX и PDF
 
 Файл `docx_export.log` создаётся автоматически в папке проекта.
@@ -180,7 +212,8 @@ python log_archive.py
 ## Тесты
 
 ```bash
-python -m unittest tests -v
+python tests.py                    # unittest-набор (фикстурная БД, не трогает puzzles.db)
+xvfb-run -a python tests.py        # Linux без графической сессии
 ```
 
 Тесты НЕ используют реальную БД (`puzzles.db`) и реальный `session.json`.
@@ -208,7 +241,7 @@ python create_fixtures.py
 Без графической сессии используйте `xvfb-run`:
 
 ```bash
-xvfb-run -a python -m unittest tests -v
+xvfb-run -a python tests.py
 ```
 
 Сценарные тесты сессий (скриншоты):
@@ -222,7 +255,7 @@ xvfb-run -a python test_session_scenarios.py
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install Pillow python-chess requests python-docx pyinstaller
-xvfb-run -a .venv/bin/python -m unittest tests -v
+xvfb-run -a .venv/bin/python tests.py
 ```
 
 ### Windows
@@ -230,7 +263,7 @@ xvfb-run -a .venv/bin/python -m unittest tests -v
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install Pillow python-chess requests python-docx pyinstaller
-.venv\Scripts\python -m unittest tests -v
+.venv\Scripts\python tests.py
 ```
 
 ### Примечание
@@ -482,6 +515,7 @@ python3 main.py
 
 - `main.py` — точка входа
 - `import_csv.py` — CLI для импорта CSV в локальную БД
+- `migrate_db.py` — миграция существующей БД (столбцы, индексы, ANALYZE)
 - `ui.py` — главное окно приложения
 - `ui_filters.py` — фильтры и статистика
 - `ui_themes.py` — темы и категории
@@ -494,7 +528,9 @@ python3 main.py
 - `pdf_exporter.py` — экспорт в PDF
 - `constants.py` — константы, переводы
 - `log_archive.py` — архивирование логов
+- `create_fixtures.py` — генерация тестовых фикстур из реальной БД
 - `tests.py` — тесты
+- `test_session_scenarios.py` — сценарные тесты сессий (скриншоты)
 - `regenerate_test_docx.py` — перегенерация тестовых DOCX
 - `regenerate_test_pdf.py` — перегенерация тестовых PDF
 

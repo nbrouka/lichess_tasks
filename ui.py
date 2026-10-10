@@ -391,7 +391,7 @@ class PuzzleApp(
             return
 
         self._restoring_session = True
-        self.status_label.config(text=t("status_loading"))
+        self._start_status_dots(t("status_loading"))
         self._clear_display()
         self.root.update_idletasks()
 
@@ -599,14 +599,14 @@ class PuzzleApp(
         # If a goto is already running, queue this one instead of dropping it.
         if getattr(self, "_goto_thread", None) and self._goto_thread.is_alive():
             self._pending_goto_target = target_index
-            self.status_label.config(text=t("status_loading"))
+            self._start_status_dots(t("status_loading"))
             return
 
         self._pending_goto_target = None
         self._start_goto_load(target_index)
 
     def _start_goto_load(self, target_index: int) -> None:
-        self.status_label.config(text=t("status_loading"))
+        self._start_status_dots(t("status_loading"))
         self.root.update_idletasks()
 
         def run():
@@ -628,15 +628,22 @@ class PuzzleApp(
                 if target_index < len(self.filtered_puzzles):
                     self.root.after(0, lambda: self._on_goto_loaded(target_index))
                 else:
-                    self.root.after(0, lambda: self.status_label.config(text=t("status_not_found")))
+                    self.root.after(0, lambda: self._stop_status_dots_and_set(t("status_not_found")))
             except Exception as exc:
                 logger.exception("Goto puzzle failed: %s", exc)
-                self.root.after(0, lambda: self.status_label.config(text=f"Error: {exc}"))
+                # Сообщение формируем сразу: exc удаляется после except-блока.
+                error_text = f"Error: {exc}"
+                self.root.after(0, lambda: self._stop_status_dots_and_set(error_text))
 
         self._goto_thread = threading.Thread(target=run, daemon=True)
         self._goto_thread.start()
 
+    def _stop_status_dots_and_set(self, text: str) -> None:
+        self._stop_status_dots()
+        self.status_label.config(text=text)
+
     def _on_goto_loaded(self, target_index: int) -> None:
+        self._stop_status_dots()
         self.status_label.config(
             text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total)
         )

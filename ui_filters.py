@@ -245,20 +245,57 @@ class PuzzleFiltersMixin:
         self._filtering_active = active
         if active:
             self._filtering_dots = 0
-            self._update_filtering_dots()
+            self._start_status_dots(t("status_filtering"))
             self.stats_label.config(text="")
             self.count_label.config(text=t("found_label", count=0))
         else:
-            if getattr(self, "_filtering_dots_id", None):
-                self.root.after_cancel(self._filtering_dots_id)
+            self._stop_status_dots()
 
-    def _update_filtering_dots(self) -> None:
-        if not getattr(self, "_filtering_active", False):
+    def _start_status_dots(self, base_text: str) -> None:
+        """Анимирует точки после статусного текста (Фильтрация/Загрузка).
+
+        Одна общая анимация для всех «долгих» состояний: повторный вызов
+        переключает базовый текст, поэтому «Фильтрация» и «Загрузка»
+        не конфликтуют между собой.
+        """
+        after_id = getattr(self, "_status_dots_id", None)
+        if after_id:
+            try:
+                self.root.after_cancel(after_id)
+            except Exception:
+                pass
+        self._status_dots_base = base_text
+        self._status_dots_count = 0
+        self._status_dots_active = True
+        self._tick_status_dots()
+
+    def _stop_status_dots(self) -> None:
+        """Останавливает анимацию точек (финальный текст задаёт вызывающий)."""
+        self._status_dots_active = False
+        after_id = getattr(self, "_status_dots_id", None)
+        if after_id:
+            try:
+                self.root.after_cancel(after_id)
+            except Exception:
+                pass
+            self._status_dots_id = None
+
+    def _tick_status_dots(self) -> None:
+        if not getattr(self, "_status_dots_active", False):
             return
-        self._filtering_dots = (self._filtering_dots + 1) % 4
-        dots = "." * self._filtering_dots
-        self.status_label.config(text=f"{t('status_filtering')}{dots}")
-        self._filtering_dots_id = self.root.after(250, self._update_filtering_dots)
+        if getattr(self, "_status_dots_ticking", False):
+            # Защита от реентерабельности: если after() выполняет колбэк
+            # синхронно (например, в тестах), повторный вход halted бы в
+            # бесконечную рекурсию.
+            return
+        self._status_dots_ticking = True
+        try:
+            self._status_dots_count = (self._status_dots_count + 1) % 4
+            dots = "." * self._status_dots_count
+            self.status_label.config(text=f"{self._status_dots_base}{dots}")
+            self._status_dots_id = self.root.after(250, self._tick_status_dots)
+        finally:
+            self._status_dots_ticking = False
 
     def _on_filter_complete(self, puzzles, count: int) -> None:
         logger.info("_on_filter_complete: puzzles=%d, count=%d", len(puzzles), count)
@@ -369,21 +406,32 @@ class PuzzleFiltersMixin:
         if getattr(self, "_load_more_thread", None) and self._load_more_thread.is_alive():
             return
 
-        self.status_label.config(text=t("status_loading"))
+        self._start_status_dots(t("status_loading"))
         self.root.update_idletasks()
 
         def run():
-            new_puzzles = self.db.filter_puzzles(
-                **self._filter_values,
-                limit=FILTER_PAGE_SIZE,
-                offset=self._filter_offset,
-            )
+            try:
+                new_puzzles = self.db.filter_puzzles(
+                    **self._filter_values,
+                    limit=FILTER_PAGE_SIZE,
+                    offset=self._filter_offset,
+                )
+            except Exception as exc:
+                logger.exception("Load more puzzles failed: %s", exc)
+                # Без except'а статус навсегда остался бы «Загрузка...»
+                # exc нужно захватить значением: после except-блока имя удаляется.
+                self.root.after(0, lambda exc=exc: self._on_more_loaded(None, error=exc))
+                return
             self.root.after(0, lambda: self._on_more_loaded(new_puzzles))
 
         self._load_more_thread = threading.Thread(target=run, daemon=True)
         self._load_more_thread.start()
 
-    def _on_more_loaded(self, new_puzzles) -> None:
+    def _on_more_loaded(self, new_puzzles, error=None) -> None:
+        self._stop_status_dots()
+        if error is not None:
+            self.status_label.config(text=f"Error: {error}")
+            return
         if not new_puzzles:
             self.status_label.config(text=t("status_loaded", count=len(self.filtered_puzzles), total=self._filter_total))
             self._update_stats()

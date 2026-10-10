@@ -248,9 +248,24 @@ class TestFilterCombinations(unittest.TestCase):
         all_items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
         self.assertTrue(any("Дебют" in item for item in all_items), msg=f"Expected 'Дебют' in {all_items}")
         if self.app.db.is_imported():
+            # Счётчики тем считаются в фоне: применяем результат вручную
+            self.app._on_theme_counts_ready(self.app.db.get_theme_counts())
+            all_items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
             debut_item = next(item for item in all_items if item.startswith("Дебют ("))
             expected_count = self.app.db.get_theme_counts().get("opening", 0)
             self.assertEqual(debut_item, f"Дебют ({expected_count})")
+
+    def test_theme_counts_refresh_preserves_selection(self):
+        """Фоновый пересчёт счётчиков не сбрасывает выделение темы."""
+        self.app._reset_themes_listbox_to_all()
+        self.app.themes_listbox.selection_set(0)
+        counts = self.app.db.get_theme_counts() if self.app.db.is_imported() else {}
+        self.app._on_theme_counts_ready(counts or {"opening": 5})
+        selected = list(self.app.themes_listbox.curselection())
+        self.assertEqual(selected, [0])
+        if counts:
+            items = [self.app.themes_listbox.get(i) for i in range(self.app.themes_listbox.size())]
+            self.assertTrue(any("(" in item for item in items), "счётчики не применились")
 
     def test_category_filter_hides_missing_themes(self):
         self.app._available_theme_ids = {"opening", "middlegame", "endgame"}

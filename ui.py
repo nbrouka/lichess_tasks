@@ -483,7 +483,9 @@ class PuzzleApp(
             ru_name = THEME_TRANSLATIONS.get(en_theme, en_theme)
             for i in range(self.themes_listbox.size()):
                 item = self.themes_listbox.get(i)
-                if item.startswith(f"{ru_name} ("):
+                # Счётчик в скобках может быть ещё не подсчитан (фоновый
+                # пересчёт), поэтому матчим и запись без « (N)».
+                if item == ru_name or item.startswith(f"{ru_name} ("):
                     self.themes_listbox.selection_set(i)
                     break
 
@@ -718,8 +720,30 @@ class PuzzleApp(
     # ------------------------------------------------------------------
     def destroy(self) -> None:
         self._save_session()
+        self._shutdown_background_threads()
         self.db.close()
         self.root.destroy()
+
+    def _shutdown_background_threads(self, timeout: float = 10.0) -> None:
+        """Ждёт фоновые воркеры перед закрытием соединений с БД.
+
+        Закрытие соединения sqlite3 из главного потока, пока воркер читает из
+        него же, роняет процесс на уровне C (segfault). Новые запросы воркеры
+        не начинают (флаг _shutting_down), уже выполняющиеся дожидаются
+        завершения — иначе закрытие во время тяжёлой статистики или фильтра
+        приводило бы к падению.
+        """
+        self._shutting_down = True
+        for name in (
+            "_filter_thread",
+            "_goto_thread",
+            "_load_more_thread",
+            "_stats_thread",
+            "_theme_counts_thread",
+        ):
+            thread = getattr(self, name, None)
+            if thread is not None and thread.is_alive():
+                thread.join(timeout=timeout)
 
 
 def main() -> None:

@@ -451,31 +451,45 @@ class PuzzleFiltersMixin:
 
         Агрегирующий запрос по 6.1M задач занимал до ~3 с в главном потоке и
         морозил UI на каждое применение фильтра. Теперь считаем в воркере,
-        результат применяем через root.after; повторные запросы, пришедшие
-        во время расчёта, выполняются один раз после него (latest wins).
+        результат применяем поллером в главном потоке (Tk из воркера небезопасен:
+        роняет процесс при закрытии окна во время расчёта); повторные запросы,
+        пришедшие во время расчёта, выполняются один раз после него.
         """
         if getattr(self, "_stats_thread", None) and self._stats_thread.is_alive():
             self._stats_pending = True
             return
         self._stats_pending = False
+        self._stats_result = None
+        self._stats_done = False
         filter_values = dict(getattr(self, "_filter_values", {}) or {})
 
         def run():
+            if getattr(self, "_shutting_down", False):
+                return
             try:
                 stats = self.db.get_stats(filter_values)
             except Exception:
                 logger.exception("get_stats failed")
                 stats = None
-
-            def apply():
-                self._apply_stats(stats)
-                if getattr(self, "_stats_pending", False):
-                    self._update_stats()
-
-            self.root.after(0, apply)
+            self._stats_result = stats
+            self._stats_done = True
 
         self._stats_thread = threading.Thread(target=run, daemon=True)
         self._stats_thread.start()
+        self._poll_stats()
+
+    def _poll_stats(self) -> None:
+        if getattr(self, "_stats_done", False):
+            self._stats_done = False
+            stats = self._stats_result
+            self._stats_result = None
+            self._apply_stats(stats)
+            if getattr(self, "_stats_pending", False):
+                self._update_stats()
+            return
+        thread = getattr(self, "_stats_thread", None)
+        if thread is not None and thread.is_alive():
+            self.root.after(50, self._poll_stats)
 
     def _apply_stats(self, stats) -> None:
         if stats is None:

@@ -358,7 +358,9 @@ class PuzzleDatabase:
     def get_theme_counts(self) -> dict:
         if self._theme_counts_cache is not None:
             return self._theme_counts_cache
-        cursor = self.conn.cursor()
+        # Читаем по отдельному соединению: подсчёт идёт в фоновом потоке и не
+        # должен блокировать интерактивные запросы на основном соединении.
+        cursor = self._get_stats_connection().cursor()
         cursor.execute("SELECT Theme, COUNT(*) FROM puzzle_themes GROUP BY Theme")
         result = {row[0]: row[1] for row in cursor.fetchall()}
         self._theme_counts_cache = result
@@ -420,6 +422,10 @@ class PuzzleDatabase:
         на 6.1M задач это ~0.55 с против ~3 с. Любые фильтры (цвет, темы,
         moves) идут агрегирующим запросом, который UI вызывает из фонового
         потока, поэтому морозить UI он больше не может.
+
+        Запросы идут по отдельному read-only соединению
+        (`_get_stats_connection`), чтобы фоновая агрегация не блокировала
+        интерактивные запросы на основном соединении.
         """
         cache_key = self._build_cache_key(**(filters or {}))
         cached = self._get_cached(cache_key, "stats")
@@ -431,7 +437,7 @@ class PuzzleDatabase:
             "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
         )
 
-        cursor = self.conn.cursor()
+        cursor = self._get_stats_connection().cursor()
         if not any((filters or {}).values()):
             # Покрывающие индексы: без чтения строк puzzles.
             rows = cursor.execute(
@@ -1206,3 +1212,33 @@ class PuzzleDatabase:
 
     def close(self) -> None:
         self.conn.close()
+        stats_conn = getattr(self, "_stats_conn", None)
+        if stats_conn is not None:
+            stats_conn.close()
+            self._stats_conn = None
+
+    # ------------------------------------------------------------------
+    # Соединение для фоновой статистики
+    # ------------------------------------------------------------------
+    def _get_stats_connection(self):
+        """Отдельное read-only соединение для расчёта статистики в фоне.
+
+        Одно соединение SQLite выполняет запросы последовательно: пока идёт
+        многосекундная агрегация статистики, интерактивные запросы (переход
+        к следующей задаче сразу после старта) блокируются на том же
+        соединении. В WAL-режиме паралленое чтение с отдельных соединений
+        работает без блокировок. Для `:memory:` тестового режима отдельное
+        соединение невозможно — там используется основное.
+        """
+        if not self.db_path or self.db_path == ":memory:":
+            return self.conn
+        conn = getattr(self, "_stats_conn", None)
+        if conn is None:
+            conn = sqlite3.connect(
+                f"file:{self.db_path}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+            )
+            conn.row_factory = sqlite3.Row
+            self._stats_conn = conn
+        return conn

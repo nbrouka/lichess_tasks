@@ -2,12 +2,16 @@
 Mixin for theme/category loading and selection in Lichess Puzzle Viewer.
 """
 
+import logging
+import threading
 import tkinter as tk
 from pathlib import Path
 import json
 from typing import Optional
 
 from constants import CATEGORY_TRANSLATIONS, THEME_TRANSLATIONS, t, get_themes_file
+
+logger = logging.getLogger(__name__)
 
 
 class PuzzleThemesMixin:
@@ -40,22 +44,94 @@ class PuzzleThemesMixin:
             self.user_themes_var.set("")
             self.user_themes_cb.set("")
 
-        category = self._category_var.get()
-        cat_themes = self.themes_data.get(category, {})
+        self._themes_listbox_scope = "category"
+        self._populate_themes_listbox()
 
-        theme_counts = {}
-        if self.db.is_imported():
-            theme_counts = self.db.get_theme_counts()
+    def _populate_themes_listbox(self, theme_counts: Optional[dict] = None) -> None:
+        """Заполняет список тем текущей области (все темы или категория).
+
+        Счётчики берём из кэша UI: GROUP BY по 27M строк puzzle_themes занимает
+        ~1.3 с, поэтому при старте он считается в фоне
+        (_schedule_theme_counts_refresh), а список тем появляется сразу.
+        """
+        if theme_counts is None:
+            theme_counts = getattr(self, "_theme_counts_cache", None) or {}
+        scope = getattr(self, "_themes_listbox_scope", "all")
+
+        if scope == "category":
+            cat_themes = self.themes_data.get(self._category_var.get(), {})
+            items = list(cat_themes.values())
+        else:
+            items = [
+                {"id": theme_id, "name": THEME_TRANSLATIONS.get(theme_id, theme_id)}
+                for theme_id in sorted(getattr(self, "_available_theme_ids", set()))
+            ]
 
         self.themes_listbox.delete(0, tk.END)
-        for data in cat_themes.values():
+        for data in items:
             theme_id = data.get("id", "")
-            if self._available_theme_ids and theme_id not in self._available_theme_ids:
+            if scope == "category" and self._available_theme_ids \
+                    and theme_id not in self._available_theme_ids:
                 continue
             ru_name = THEME_TRANSLATIONS.get(theme_id, data.get("name", ""))
             count = theme_counts.get(theme_id, 0)
             display = f"{ru_name} ({count})" if count else ru_name
             self.themes_listbox.insert(tk.END, display)
+
+    def _schedule_theme_counts_refresh(self) -> None:
+        """Считает счётчики тем в фоне и обновляет список, сохраняя выделение.
+
+        GROUP BY по всей таблице puzzle_themes на старте блокировал появление
+        окна на ~1.3 с. Теперь список тем заполняется сразу, а счётчики
+        дорисовываются, когда посчитаются. Воркер только пишет результат в
+        атрибут — применять его и трогать Tk может только главный поток
+        (поллер ниже), иначе закрытие окна во время расчёта роняет процесс.
+        """
+        if not self.db.is_imported():
+            return
+        if getattr(self, "_theme_counts_thread", None) and self._theme_counts_thread.is_alive():
+            self._theme_counts_pending = True
+            return
+        self._theme_counts_pending = False
+        self._theme_counts_result = None
+        self._theme_counts_done = False
+
+        def run():
+            if getattr(self, "_shutting_down", False):
+                return
+            try:
+                counts = self.db.get_theme_counts()
+            except Exception:
+                logger.exception("get_theme_counts failed")
+                counts = None
+            self._theme_counts_result = counts
+            self._theme_counts_done = True
+
+        self._theme_counts_thread = threading.Thread(target=run, daemon=True)
+        self._theme_counts_thread.start()
+        self._poll_theme_counts()
+
+    def _poll_theme_counts(self) -> None:
+        """Забирает результат подсчёта в главном потоке (без Tk из воркера)."""
+        if getattr(self, "_theme_counts_done", False):
+            self._theme_counts_done = False
+            counts = self._theme_counts_result
+            self._theme_counts_result = None
+            self._on_theme_counts_ready(counts)
+            return
+        thread = getattr(self, "_theme_counts_thread", None)
+        if thread is not None and thread.is_alive():
+            self.root.after(100, self._poll_theme_counts)
+
+    def _on_theme_counts_ready(self, counts) -> None:
+        if counts is not None:
+            self._theme_counts_cache = counts
+            selected = list(self.themes_listbox.curselection())
+            self._populate_themes_listbox(counts)
+            for index in selected:
+                self.themes_listbox.selection_set(index)
+        if getattr(self, "_theme_counts_pending", False):
+            self._schedule_theme_counts_refresh()
 
     def _on_db_ready(self) -> None:
         """
@@ -70,10 +146,6 @@ class PuzzleThemesMixin:
 
         self._refresh_user_themes()
         self._refresh_exclude_user_themes()
-
-        theme_counts = {}
-        if self.db.is_imported():
-            theme_counts = self.db.get_theme_counts()
 
         filtered_categories = []
         filtered_themes_data = {}
@@ -91,7 +163,10 @@ class PuzzleThemesMixin:
         self.category_cb["values"] = filtered_categories
         self._category_var.set("")
 
-        self._reset_themes_listbox_to_all(theme_counts)
+        # Счётчики тем считаются в фоне: GROUP BY по puzzle_themes занимает
+        # ~1.3 с и блокировал появление окна на старте.
+        self._reset_themes_listbox_to_all()
+        self._schedule_theme_counts_refresh()
 
     def _refresh_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()
@@ -122,15 +197,8 @@ class PuzzleThemesMixin:
             self.user_themes_cb.set("")
 
     def _reset_themes_listbox_to_all(self, theme_counts: Optional[dict] = None) -> None:
-        self.themes_listbox.delete(0, tk.END)
-        if theme_counts is None:
-            theme_counts = self.db.get_theme_counts() if self.db.is_imported() else {}
-        for theme in sorted(getattr(self, "_available_theme_ids", set())):
-            count = theme_counts.get(theme, 0)
-            display = THEME_TRANSLATIONS.get(theme, theme)
-            if count:
-                display = f"{display} ({count})"
-            self.themes_listbox.insert(tk.END, display)
+        self._themes_listbox_scope = "all"
+        self._populate_themes_listbox(theme_counts)
 
     def _refresh_exclude_user_themes(self) -> None:
         user_themes = self.db.get_user_themes()

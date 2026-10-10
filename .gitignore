@@ -20,6 +20,7 @@ lichess_db_puzzle.csv
 puzzles.db
 *.db
 !tests/fixtures/puzzles_fixture.db
+session.json
 .piece_cache/
 f0qUr.png
 *.db-shm
@@ -29,6 +30,7 @@ f0qUr.png
 *.docx
 *.pdf
 *.log
+screenshots/
 
 # OS
 .DS_Store

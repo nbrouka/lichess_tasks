@@ -16,6 +16,7 @@ from constants import (
     SQL_CREATE_THEMES, SQL_CREATE_USER_THEMES, SQL_CREATE_USER_PUZZLE_THEMES,
     SQL_INDEXES, IMPORT_BATCH_SIZE,
     IMPORT_PROGRESS_INTERVAL, FILTER_DEFAULT_LIMIT,
+    THEME_PROBE_MAX_OFFSET,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,49 @@ class PuzzleDatabase:
         # Быстрый путь выборки по темам доступен только если БД содержит
         # денормализованные Rating/Popularity и covering-индекс (см. migrate_db.py).
         self._theme_ranking_ready = self._check_theme_ranking()
+        # Быстрые планы по (Theme, Color) и одним moves/color аналогично.
+        self._theme_color_ranking_ready = self._check_theme_color_ranking()
+        self._listing_indexes_ready = self._check_listing_indexes()
+
+    @staticmethod
+    def _indexes_present(conn, names) -> bool:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT COUNT(*) FROM sqlite_master WHERE type='index' "
+            f"AND name IN ({','.join(['?'] * len(names))})",
+            list(names),
+        )
+        return cursor.fetchone()[0] == len(names)
+
+    def _check_theme_color_ranking(self) -> bool:
+        """БД поддерживает выборку «тема + цвет» по puzzle_themes.
+
+        Нужны денормализованный Color и covering-индекс
+        idx_puzzle_themes_theme_color_rating (Theme, Color, Rating, ...).
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA table_info(puzzle_themes)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "Color" not in columns:
+            return False
+        return self._indexes_present(
+            self.conn, ["idx_puzzle_themes_theme_color_rating"]
+        )
+
+    def _check_listing_indexes(self) -> bool:
+        """БД содержит индексы с полным порядком листинга.
+
+        (Rating, Popularity DESC, PuzzleId) и производные — без них быстрые
+        пути дали бы недетерминированный порядок и не поместились бы в индекс.
+        """
+        return self._indexes_present(
+            self.conn,
+            [
+                "idx_rating_popularity",
+                "idx_color_rating_popularity",
+                "idx_moves_count_rating",
+            ],
+        )
 
     # ------------------------------------------------------------------
     # Схема
@@ -148,6 +192,17 @@ class PuzzleDatabase:
             if key != "themes"
         )
 
+    @staticmethod
+    def _is_theme_color_only_filters(filters: dict) -> bool:
+        """True, если значимые фильтры — только стандартные темы и цвет."""
+        if not filters or not filters.get("themes") or not filters.get("color"):
+            return False
+        return all(
+            not value
+            for key, value in filters.items()
+            if key not in ("themes", "color")
+        )
+
     def create_indexes(self, progress_callback: Optional[Callable[[int], None]] = None) -> None:
         cursor = self.conn.cursor()
         for idx, sql in enumerate(SQL_INDEXES, start=1):
@@ -157,6 +212,8 @@ class PuzzleDatabase:
         self.conn.commit()
         # Импорт/пересоздание индексов может включить быстрый theme-only путь.
         self._theme_ranking_ready = self._check_theme_ranking()
+        self._theme_color_ranking_ready = self._check_theme_color_ranking()
+        self._listing_indexes_ready = self._check_listing_indexes()
 
     # ------------------------------------------------------------------
     # Статус импорта
@@ -235,10 +292,13 @@ class PuzzleDatabase:
                     ))
 
                     # Темы хранятся в отдельной таблице для быстрого фильтра по теме.
-                    # Rating/Popularity денормализованы: позволяют выбирать задачи
-                    # темы сразу в порядке сортировки листинга по covering-индексу.
+                    # Rating/Popularity/Color денормализованы: позволяют выбирать
+                    # задачи темы сразу в порядке сортировки листинга, а также по
+                    # составному индексу (Theme, Color, Rating, ...), не касаясь puzzles.
                     for theme in themes.split():
-                        theme_batch.append((puzzle_id, theme, rating, popularity))
+                        theme_batch.append(
+                            (puzzle_id, theme, rating, popularity, color)
+                        )
 
                     # Пакетная вставка уменьшает количество транзакций и ускоряет импорт.
                     if len(batch) >= batch_size:
@@ -247,7 +307,7 @@ class PuzzleDatabase:
                             batch,
                         )
                         cursor.executemany(
-                            "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?)",
+                            "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?,?)",
                             theme_batch,
                         )
                         self.conn.commit()
@@ -268,7 +328,7 @@ class PuzzleDatabase:
                 batch,
             )
             cursor.executemany(
-                "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?)",
+                "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?,?)",
                 theme_batch,
             )
             total_inserted += len(batch)
@@ -354,18 +414,42 @@ class PuzzleDatabase:
 
         Статистика кэшируется, чтобы не выполнять один и тот же запрос
         несколько раз при обновлении UI.
+
+        Без фильтров подсчёт идёт двумя покрывающими индексами (idx_color /
+        idx_moves_count) вместо построчной выборки Color/moves из таблицы —
+        на 6.1M задач это ~0.55 с против ~3 с. Любые фильтры (цвет, темы,
+        moves) идут агрегирующим запросом, который UI вызывает из фонового
+        потока, поэтому морозить UI он больше не может.
         """
         cache_key = self._build_cache_key(**(filters or {}))
         cached = self._get_cached(cache_key, "stats")
         if cached is not None:
             return cached
 
+        stats = {"white": 0, "black": 0, "by_moves": {}}
+        moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else (
+            "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
+        )
+
         cursor = self.conn.cursor()
-        stats = {
-            "white": 0,
-            "black": 0,
-            "by_moves": {},
-        }
+        if not any((filters or {}).values()):
+            # Покрывающие индексы: без чтения строк puzzles.
+            rows = cursor.execute(
+                "SELECT Color AS color, COUNT(*) AS cnt FROM puzzles GROUP BY Color"
+            ).fetchall()
+            for row in rows:
+                key = "white" if row["color"] == "w" else "black"
+                stats[key] = row["cnt"]
+
+            rows = cursor.execute(
+                f"SELECT {moves_expr} AS moves_count, COUNT(*) AS cnt "
+                f"FROM puzzles GROUP BY moves_count"
+            ).fetchall()
+            for row in rows:
+                stats["by_moves"][row["moves_count"] or 0] = row["cnt"]
+
+            self._set_cached(cache_key, "stats", stats)
+            return stats
 
         conditions = ["1=1"]
         params: List[Any] = []
@@ -375,7 +459,6 @@ class PuzzleDatabase:
                 conditions.append("puzzles.Color = ?")
                 params.append(filters["color"])
             if filters.get("moves_exact") is not None:
-                moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
                 conditions.append(f"{moves_expr} = ?")
                 params.append(filters["moves_exact"])
             if filters.get("themes"):
@@ -408,8 +491,6 @@ class PuzzleDatabase:
 
         where = " AND ".join(conditions)
 
-        # Группируем по количеству полуходов, чтобы получить статистику по длине решения.
-        moves_expr = "puzzles.moves_count" if self._has_moves_count_column() else "(LENGTH(puzzles.Moves) - LENGTH(REPLACE(puzzles.Moves, ' ', '')) + 1) / 2"
         cursor.execute(
             f"""
             SELECT
@@ -570,8 +651,18 @@ class PuzzleDatabase:
         if self._theme_ranking_ready and self._is_theme_only_filters(filters):
             puzzles = self._fetch_theme_puzzles(list(dict.fromkeys(filters["themes"])), 1, offset)
             return puzzles[0] if puzzles else None
+        if self._theme_color_ranking_ready and self._is_theme_color_only_filters(filters):
+            puzzles = self._fetch_theme_puzzles(
+                list(dict.fromkeys(filters["themes"])), 1, offset, color=filters["color"]
+            )
+            return puzzles[0] if puzzles else None
+        if self._can_use_theme_probe(filters, offset):
+            return self._get_puzzle_by_theme_probe(filters["themes"], filters, offset)
+        if self._can_use_moves_fast_path(filters):
+            puzzles = self._fetch_moves_puzzles(filters["moves_exact"], 1, offset)
+            return puzzles[0] if puzzles else None
         where_clause, params = self._build_filter_conditions(**filters)
-        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating ASC, Popularity DESC LIMIT 1 OFFSET ?"
+        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT 1 OFFSET ?"
         cursor = self.conn.cursor()
         cursor.execute(sql, params + [offset])
         row = cursor.fetchone()
@@ -579,12 +670,18 @@ class PuzzleDatabase:
             return None
         return self._row_to_puzzle(row)
 
-    def _fetch_theme_puzzles(self, unique_themes: List[str], limit: int, offset: int) -> List["Puzzle"]:
-        """Возвращает задачи темы сразу в порядке листинга (rating ASC, popularity DESC).
+    def _fetch_theme_puzzles(
+        self,
+        unique_themes: List[str],
+        limit: int,
+        offset: int,
+        color: Optional[str] = None,
+    ) -> List["Puzzle"]:
+        """Возвращает задачи темы сразу в порядке листинга (rating ASC, popularity DESC, PuzzleId).
 
         Шаг 1: упорядоченная выборка PuzzleId из puzzle_themes по covering-индексу
-        idx_puzzle_themes_theme_rating (Theme, Rating, Popularity DESC, PuzzleId) —
-        LIMIT/OFFSET спускаются непосредственно в индекс, поэтому не нужно
+        idx_puzzle_themes_theme_rating (или idx_puzzle_themes_theme_color_rating при
+        color) — LIMIT/OFFSET спускаются непосредственно в индекс, поэтому не нужно
         материализовывать и сортировать все совпадения с точечными чтениями puzzles.
 
         Для нескольких тем одна задача может входить в несколько выбранных тем —
@@ -592,24 +689,27 @@ class PuzzleDatabase:
 
         Шаг 2: точечная выборка только нужных строк puzzles по PuzzleId.
 
-        ВАЖНО: путь корректен только для theme-only фильтров. Доп. условия
-        (color, moves_exact, ...) после LIMIT шага 1 отфильтровали бы часть строк
-        и сломали пагинацию.
+        ВАЖНО: путь корректен только для фильтров «темы + (цвет)». Доп. условия
+        (moves_exact, user_themes, ...) после LIMIT шага 1 отфильтровали бы часть
+        строк и сломали пагинацию — для них есть probe-план.
         """
         needed = offset + limit
         cursor = self.conn.cursor()
         if len(unique_themes) == 1:
+            color_sql = " AND Color = ?" if color else ""
             cursor.execute(
                 "SELECT PuzzleId, Rating, Popularity FROM puzzle_themes "
-                "WHERE Theme = ? ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT ? OFFSET ?",
-                [unique_themes[0], limit, offset],
+                f"WHERE Theme = ?{color_sql} "
+                "ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT ? OFFSET ?",
+                [unique_themes[0], *([color] if color else []), limit, offset],
             )
             rows = cursor.fetchall()
         else:
             placeholders = ",".join(["?"] * len(unique_themes))
+            color_sql = " AND Color = ?" if color else ""
             inner_sql = (
                 "SELECT PuzzleId, Rating, Popularity FROM puzzle_themes "
-                f"WHERE Theme IN ({placeholders}) "
+                f"WHERE Theme IN ({placeholders}){color_sql} "
                 "ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT ? OFFSET 0"
             )
             # Окно берём с запасом на дубли (одна задача в нескольких темах):
@@ -619,7 +719,9 @@ class PuzzleDatabase:
             window = min(needed, 1000)
             unique_by_id: dict = {}
             while True:
-                cursor.execute(inner_sql, [*unique_themes, window])
+                cursor.execute(
+                    inner_sql, [*unique_themes, *([color] if color else []), window]
+                )
                 fetched = cursor.fetchall()
                 # setdefault сохраняет порядок первого вхождения = порядок сортировки
                 unique_by_id = {}
@@ -650,6 +752,115 @@ class PuzzleDatabase:
             for row in cursor.fetchall():
                 by_id[row["PuzzleId"]] = row
         return [self._row_to_puzzle(by_id[pid]) for pid in ids if pid in by_id]
+
+    # ------------------------------------------------------------------
+    # Быстрые пути составных фильтров
+    # ------------------------------------------------------------------
+    def _count_by_themes(
+        self, unique_themes: List[str], color: Optional[str] = None
+    ) -> int:
+        """COUNT задач по темам из puzzle_themes.
+
+        Для одной темы COUNT(*) эквивалентен COUNT(DISTINCT PuzzleId):
+        в puzzle_themes одна строка на пару (задача, тема). COUNT(*) идёт
+        сканом диапазона covering-индекса без построения distinct-btree.
+        """
+        cursor = self.conn.cursor()
+        color_sql = " AND Color = ?" if color else ""
+        color_params = [color] if color else []
+        if len(unique_themes) == 1:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM puzzle_themes WHERE Theme = ?{color_sql}",
+                [unique_themes[0], *color_params],
+            )
+            return cursor.fetchone()[0]
+        placeholders = ",".join(["?"] * len(unique_themes))
+        cursor.execute(
+            f"SELECT COUNT(DISTINCT PuzzleId) FROM puzzle_themes "
+            f"WHERE Theme IN ({placeholders}){color_sql}",
+            [*unique_themes, *color_params],
+        )
+        return cursor.fetchone()[0]
+
+    def _can_use_moves_fast_path(self, filters: dict) -> bool:
+        """moves_exact без тем может идти сканом covering-индекса."""
+        return bool(
+            self._listing_indexes_ready
+            and filters.get("moves_exact") is not None
+            and not filters.get("themes")
+            and not filters.get("user_themes")
+            and not filters.get("exclude_user_themes")
+        )
+
+    def _count_by_filters(self, filters: dict) -> int:
+        """COUNT по общим условиям фильтра (используется probe-планом)."""
+        where_clause, params = self._build_filter_conditions(**filters)
+        cursor = self.conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM puzzles WHERE {where_clause}", params)
+        return cursor.fetchone()[0]
+
+    def _fetch_moves_puzzles(self, moves_exact: int, limit: int, offset: int) -> List["Puzzle"]:
+        """Выборка по moves_exact в порядке листинга через covering-индекс."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT * FROM puzzles WHERE moves_count = ? "
+            "ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT ? OFFSET ?",
+            (moves_exact, limit, offset),
+        )
+        return [self._row_to_puzzle(row) for row in cursor.fetchall()]
+
+    def _can_use_theme_probe(self, filters: dict, offset: int) -> bool:
+        """Темы + доп. фильтры на мелкой странице: план «ведущий индекс + проб».
+
+        Старый план материализует все совпадения темы (до 1.9M строк) с
+        точечными чтениями puzzles. На первых страницах дешевле идти по
+        covering-индексу листинга и проверять тему пробом. На глубоких
+        offset'ах пробов слишком много — там остаётся старый план.
+        """
+        return bool(
+            self._listing_indexes_ready
+            and filters.get("themes")
+            and offset <= THEME_PROBE_MAX_OFFSET
+        )
+
+    def _build_theme_probe_sql(self, themes: List[str], filters: dict):
+        """SQL и параметры probe-плана: ведущий индекс листинга + EXISTS по теме."""
+        unique_themes = list(dict.fromkeys(themes))
+        theme_placeholders = ",".join(["?"] * len(unique_themes))
+        driver = (
+            "idx_color_rating_popularity" if filters.get("color") else "idx_rating_popularity"
+        )
+        where_clause, params = self._build_filter_conditions(
+            **{**filters, "themes": None}
+        )
+        conds = where_clause
+        if conds.startswith("1=1"):
+            conds = conds[3:].strip()
+        if conds.startswith("AND "):
+            conds = conds[4:].strip()
+        conds = conds or "1=1"
+        sql = (
+            f"SELECT p.* FROM puzzles p INDEXED BY {driver} "
+            f"WHERE {conds} "
+            f"AND EXISTS ("
+            f"SELECT 1 FROM puzzle_themes pt "
+            f"WHERE pt.PuzzleId = p.PuzzleId AND pt.Theme IN ({theme_placeholders})"
+            f") "
+            f"ORDER BY p.Rating ASC, p.Popularity DESC, p.PuzzleId ASC "
+            f"LIMIT ? OFFSET ?"
+        )
+        return sql, [*params, *unique_themes]
+
+    def _get_puzzle_by_theme_probe(
+        self, themes: List[str], filters: dict, offset: int
+    ) -> Optional["Puzzle"]:
+        sql, params = self._build_theme_probe_sql(themes, filters)
+        cursor = self.conn.cursor()
+        cursor.execute(sql, [*params, 1, offset])
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_puzzle(row)
 
     def get_puzzle_by_id(self, puzzle_id: str) -> Optional["Puzzle"]:
         cursor = self.conn.cursor()
@@ -762,6 +973,40 @@ class PuzzleDatabase:
             self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
             return (puzzles, total) if return_total else puzzles
 
+        # Быстрый путь: темы + цвет — covering-индекс puzzle_themes
+        # (Theme, Color, Rating, Popularity DESC, PuzzleId), любой offset.
+        if self._theme_color_ranking_ready and self._is_theme_color_only_filters(filter_dict):
+            unique_themes = list(dict.fromkeys(themes))
+            puzzles = self._fetch_theme_puzzles(unique_themes, limit, offset, color=color)
+            total = self._count_by_themes(unique_themes, color=color) if return_total else None
+            self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
+            return (puzzles, total) if return_total else puzzles
+
+        # Быстрый путь: moves_exact без тем — covering-индекс puzzles.
+        if self._can_use_moves_fast_path(filter_dict):
+            puzzles = self._fetch_moves_puzzles(moves_exact, limit, offset)
+            total = None
+            if return_total:
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(*) FROM puzzles WHERE moves_count = ?", (moves_exact,)
+                )
+                total = cursor.fetchone()[0]
+            self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
+            return (puzzles, total) if return_total else puzzles
+
+        # Probe-план: темы + любые доп. фильтры на мелкой странице.
+        if self._can_use_theme_probe(filter_dict, offset):
+            sql, probe_params = self._build_theme_probe_sql(themes, filter_dict)
+            total = None
+            if return_total:
+                total = self._count_by_filters(filter_dict)
+            cursor = self.conn.cursor()
+            cursor.execute(sql, [*probe_params, limit, offset])
+            puzzles = [self._row_to_puzzle(row) for row in cursor.fetchall()]
+            self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
+            return (puzzles, total) if return_total else puzzles
+
         where_clause, params = self._build_filter_conditions(
             puzzle_id_contains=puzzle_id_contains,
             rating_min=rating_min,
@@ -791,7 +1036,7 @@ class PuzzleDatabase:
         else:
             total = 0
 
-        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating ASC, Popularity DESC LIMIT ? OFFSET ?"
+        sql = f"SELECT * FROM puzzles WHERE {where_clause} ORDER BY Rating ASC, Popularity DESC, PuzzleId ASC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         cursor = self.conn.cursor()
@@ -801,16 +1046,6 @@ class PuzzleDatabase:
         puzzles = [self._row_to_puzzle(row) for row in rows]
         self._set_cached(cache_key, f"filter:{offset}:{limit}", (puzzles, total))
         return (puzzles, total) if return_total else puzzles
-
-    def _count_by_themes(self, unique_themes: List[str]) -> int:
-        """COUNT задач по темам напрямую из puzzle_themes ( covering-индекс )."""
-        placeholders = ",".join(["?"] * len(unique_themes))
-        cursor = self.conn.cursor()
-        cursor.execute(
-            f"SELECT COUNT(DISTINCT PuzzleId) FROM puzzle_themes WHERE Theme IN ({placeholders})",
-            unique_themes,
-        )
-        return cursor.fetchone()[0]
 
     def count_filtered(
         self,

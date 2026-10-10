@@ -72,8 +72,8 @@ def migrate(db_path: str) -> None:
         else:
             logger.info("sheets_created already exists")
 
-        # Denormalized Rating/Popularity in puzzle_themes + covering index
-        # for the theme-only listing fast path.
+        # Denormalized Rating/Popularity/Color in puzzle_themes + covering indexes
+        # for the theme-only and theme+color listing fast paths.
         added_rating = not has_column(cursor, "puzzle_themes", "Rating")
         if added_rating:
             logger.info("Add Rating column to puzzle_themes")
@@ -84,35 +84,57 @@ def migrate(db_path: str) -> None:
             logger.info("Add Popularity column to puzzle_themes")
             cursor.execute("ALTER TABLE puzzle_themes ADD COLUMN Popularity INTEGER")
             conn.commit()
-        if not (added_rating or added_popularity):
-            logger.info("puzzle_themes Rating/Popularity already exist")
+        added_color = not has_column(cursor, "puzzle_themes", "Color")
+        if added_color:
+            logger.info("Add Color column to puzzle_themes")
+            cursor.execute("ALTER TABLE puzzle_themes ADD COLUMN Color TEXT")
+            conn.commit()
+        if not (added_rating or added_popularity or added_color):
+            logger.info("puzzle_themes Rating/Popularity/Color already exist")
 
         # Backfill once after adding the columns (single pass over puzzle_themes).
-        if added_rating or added_popularity:
-            logger.info("Backfill puzzle_themes Rating/Popularity from puzzles")
+        if added_rating or added_popularity or added_color:
+            logger.info("Backfill puzzle_themes Rating/Popularity/Color from puzzles")
             try:
                 cursor.execute(
-                    "UPDATE puzzle_themes SET Rating = p.Rating, Popularity = p.Popularity "
+                    "UPDATE puzzle_themes SET Rating = p.Rating, Popularity = p.Popularity, Color = p.Color "
                     "FROM puzzles p WHERE p.PuzzleId = puzzle_themes.PuzzleId"
                 )
             except sqlite3.OperationalError:
-                # UPDATE ... FROM требует SQLite 3.33+; фоллбэк для старых версий.
+                # UPDATE ... FROM требует SQLite 3.33+; фолбэк для старых версий.
                 cursor.execute(
                     "UPDATE puzzle_themes SET "
                     "Rating = (SELECT p.Rating FROM puzzles p WHERE p.PuzzleId = puzzle_themes.PuzzleId), "
-                    "Popularity = (SELECT p.Popularity FROM puzzles p WHERE p.PuzzleId = puzzle_themes.PuzzleId)"
+                    "Popularity = (SELECT p.Popularity FROM puzzles p WHERE p.PuzzleId = puzzle_themes.PuzzleId), "
+                    "Color = (SELECT p.Color FROM puzzles p WHERE p.PuzzleId = puzzle_themes.PuzzleId)"
                 )
             conn.commit()
             logger.info("Backfill done")
+
+        # Listing indexes with full deterministic order (Rating, Popularity DESC, PuzzleId).
+        # Старые версии (без PuzzleId) пересоздаём: IF NOT EXISTS их не обновит.
+        for stale_name, stale_sql in (
+            ("idx_rating_popularity", "ON puzzles(Rating, Popularity DESC)"),
+            ("idx_color_rating_popularity", "ON puzzles(Color, Rating, Popularity DESC)"),
+        ):
+            if has_index(cursor, stale_name):
+                cursor.execute(f"SELECT sql FROM sqlite_master WHERE type='index' AND name=?", (stale_name,))
+                definition = cursor.fetchone()[0] or ""
+                if "PuzzleId" not in definition:
+                    logger.info("Recreate index %s with deterministic order", stale_name)
+                    cursor.execute(f"DROP INDEX {stale_name}")
+                    conn.commit()
 
         # Indexes
         indexes = [
             ("idx_puzzle_user_themes_puzzle_theme", "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_puzzle_theme ON puzzle_user_themes(puzzle_id, theme_id)"),
             ("idx_puzzle_themes_puzzle_theme", "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_puzzle_theme ON puzzle_themes(PuzzleId, Theme)"),
             ("idx_puzzle_user_themes_theme_puzzle", "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_theme_puzzle ON puzzle_user_themes(theme_id, puzzle_id)"),
-            ("idx_rating_popularity", "CREATE INDEX IF NOT EXISTS idx_rating_popularity ON puzzles(Rating, Popularity DESC)"),
-            ("idx_color_rating_popularity", "CREATE INDEX IF NOT EXISTS idx_color_rating_popularity ON puzzles(Color, Rating, Popularity DESC)"),
+            ("idx_rating_popularity", "CREATE INDEX IF NOT EXISTS idx_rating_popularity ON puzzles(Rating, Popularity DESC, PuzzleId)"),
+            ("idx_color_rating_popularity", "CREATE INDEX IF NOT EXISTS idx_color_rating_popularity ON puzzles(Color, Rating, Popularity DESC, PuzzleId)"),
             ("idx_puzzle_themes_theme_rating", "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_rating ON puzzle_themes(Theme, Rating, Popularity DESC, PuzzleId)"),
+            ("idx_puzzle_themes_theme_color_rating", "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_color_rating ON puzzle_themes(Theme, Color, Rating, Popularity DESC, PuzzleId)"),
+            ("idx_moves_count_rating", "CREATE INDEX IF NOT EXISTS idx_moves_count_rating ON puzzles(moves_count, Rating, Popularity DESC, PuzzleId)"),
         ]
 
         # Устаревший индекс под ORDER BY Rating DESC — сортировка теперь ASC.

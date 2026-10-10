@@ -399,7 +399,39 @@ class PuzzleFiltersMixin:
             self._show_puzzle(0)
 
     def _update_stats(self) -> None:
-        stats = self.db.get_stats(self._filter_values)
+        """Пересчитывает статистику фильтра в фоне и обновляет панель.
+
+        Агрегирующий запрос по 6.1M задач занимал до ~3 с в главном потоке и
+        морозил UI на каждое применение фильтра. Теперь считаем в воркере,
+        результат применяем через root.after; повторные запросы, пришедшие
+        во время расчёта, выполняются один раз после него (latest wins).
+        """
+        if getattr(self, "_stats_thread", None) and self._stats_thread.is_alive():
+            self._stats_pending = True
+            return
+        self._stats_pending = False
+        filter_values = dict(getattr(self, "_filter_values", {}) or {})
+
+        def run():
+            try:
+                stats = self.db.get_stats(filter_values)
+            except Exception:
+                logger.exception("get_stats failed")
+                stats = None
+
+            def apply():
+                self._apply_stats(stats)
+                if getattr(self, "_stats_pending", False):
+                    self._update_stats()
+
+            self.root.after(0, apply)
+
+        self._stats_thread = threading.Thread(target=run, daemon=True)
+        self._stats_thread.start()
+
+    def _apply_stats(self, stats) -> None:
+        if stats is None:
+            return
         moves_items = list(sorted(stats["by_moves"].items()))
 
         if len(moves_items) <= 2:

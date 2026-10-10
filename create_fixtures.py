@@ -122,14 +122,14 @@ def build_fixture_db(rows: list) -> None:
         # Rating/Popularity денормализованы в puzzle_themes для быстрого
         # theme-only пути выборки (covering-индекс).
         for theme in (row[7] or "").split():
-            theme_rows.append((puzzle_id, theme, row[3], row[5]))
+            theme_rows.append((puzzle_id, theme, row[3], row[5], color))
 
     cursor.executemany(
         "INSERT OR REPLACE INTO puzzles VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         puzzle_rows,
     )
     cursor.executemany(
-        "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?)",
+        "INSERT OR IGNORE INTO puzzle_themes VALUES (?,?,?,?,?)",
         theme_rows,
     )
     db.conn.commit()

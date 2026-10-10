@@ -353,8 +353,22 @@ class TestFilterCombinations(unittest.TestCase):
         self.app._filter_offset = 2
         self.app.filtered_puzzles = [PuzzleMock(), PuzzleMock()]
 
+        def immediate_after(ms, func, *args):
+            return func(*args)
+
+        class FakeThread:
+            def __init__(self, target=None, daemon=None):
+                self._target = target
+            def start(self):
+                if self._target:
+                    self._target()
+            def is_alive(self):
+                return False
+
         with patch.object(self.app, "_show_puzzle", lambda index: None), \
-             patch.object(self.app.db, "get_stats", return_value={"white": 5, "black": 3, "by_moves": {1: 5, 2: 3}}):
+             patch.object(self.app.db, "get_stats", return_value={"white": 5, "black": 3, "by_moves": {1: 5, 2: 3}}), \
+             patch.object(self.app.root, "after", immediate_after), \
+             patch.object(threading, "Thread", FakeThread):
             self.app._update_stats()
 
         text = self.app.stats_label.cget("text")
@@ -550,13 +564,24 @@ class TestDatabaseFilter(unittest.TestCase):
             "00002,rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1,e2e4 e7e5,1000,25,90,200,fork,http://example.com,Italian Game,2023-01-02",
         ])
         self.db.import_csv()
-        # Имитируем старую БД: убираем денормализацию и covering-индекс.
+        # Имитируем старую БД: убираем денормализацию, covering-индексы и
+        # индексы листинга с полным порядком.
         cursor = self.db.conn.cursor()
-        cursor.execute("DROP INDEX idx_puzzle_themes_theme_rating")
-        cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Rating")
+        for index_name in (
+            "idx_puzzle_themes_theme_color_rating",
+            "idx_puzzle_themes_theme_rating",
+            "idx_rating_popularity",
+            "idx_color_rating_popularity",
+            "idx_moves_count_rating",
+        ):
+            cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+        cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Color")
         cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Popularity")
+        cursor.execute("ALTER TABLE puzzle_themes DROP COLUMN Rating")
         self.db.conn.commit()
         self.db._theme_ranking_ready = self.db._check_theme_ranking()
+        self.db._theme_color_ranking_ready = self.db._check_theme_color_ranking()
+        self.db._listing_indexes_ready = self.db._check_listing_indexes()
         self.assertFalse(self.db._theme_ranking_ready)
         puzzles = self.db.filter_puzzles(themes=["fork"], limit=10)
         self.assertEqual([p.puzzle_id for p in puzzles], ["00002", "00001"])

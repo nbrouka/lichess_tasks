@@ -363,6 +363,10 @@ IMPORT_PROGRESS_INTERVAL = 25_000
 FILTER_DEFAULT_LIMIT = 200
 FILTER_PAGE_SIZE = 50
 FILTER_DEBOUNCE_MS = 300
+# Максимальный offset, на котором probe-план (ведущий индекс листинга + проб
+# puzzle_themes) дешевле материализации всех совпадений темы. На глубоких
+# страницах пробов слишком много — там остаётся план с IN-подзапросом.
+THEME_PROBE_MAX_OFFSET = 3000
 
 # ---------------------------------------------------------------------------
 # Миниатюры
@@ -455,6 +459,7 @@ CREATE TABLE IF NOT EXISTS puzzle_themes (
     Theme TEXT NOT NULL,
     Rating INTEGER,
     Popularity INTEGER,
+    Color TEXT,
     FOREIGN KEY (PuzzleId) REFERENCES puzzles (PuzzleId)
 );
 """
@@ -481,9 +486,11 @@ SQL_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_theme ON puzzle_themes(Theme);",
     "CREATE INDEX IF NOT EXISTS idx_rating ON puzzles(Rating);",
     "CREATE INDEX IF NOT EXISTS idx_popularity ON puzzles(Popularity);",
-    "CREATE INDEX IF NOT EXISTS idx_rating_popularity ON puzzles(Rating, Popularity DESC);",
-    "CREATE INDEX IF NOT EXISTS idx_color_rating_popularity ON puzzles(Color, Rating, Popularity DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_rating_popularity ON puzzles(Rating, Popularity DESC, PuzzleId);",
+    "CREATE INDEX IF NOT EXISTS idx_color_rating_popularity ON puzzles(Color, Rating, Popularity DESC, PuzzleId);",
+    "CREATE INDEX IF NOT EXISTS idx_moves_count_rating ON puzzles(moves_count, Rating, Popularity DESC, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_rating ON puzzle_themes(Theme, Rating, Popularity DESC, PuzzleId);",
+    "CREATE INDEX IF NOT EXISTS idx_puzzle_themes_theme_color_rating ON puzzle_themes(Theme, Color, Rating, Popularity DESC, PuzzleId);",
     "CREATE INDEX IF NOT EXISTS idx_nb_plays ON puzzles(NbPlays);",
     "CREATE INDEX IF NOT EXISTS idx_daily_date ON puzzles(DailyDate);",
     "CREATE INDEX IF NOT EXISTS idx_color ON puzzles(Color);",

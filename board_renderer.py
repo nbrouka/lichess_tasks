@@ -17,17 +17,55 @@ _PIECE_MAP = {
     "p": "bP", "n": "bN", "b": "bB", "r": "bR", "q": "bQ", "k": "bK",
 }
 
+# Кэш подготовленных фигур и шрифтов: чтение PNG и resize с диска при каждом
+# рендере стоили ~4 мс на доску (до 32 фигур), теперь берём готовое изображение.
+_PIECE_CACHE: dict = {}
+_FONT_CACHE: dict = {}
+
 
 def _load_piece_image(piece_symbol: str, size: int) -> "Image.Image | None":
-    """Загружает PNG-фигуру из папки pieces/."""
+    """Загружает PNG-фигуру из папки pieces/ (с кэшем по символу и размеру)."""
+    cache_key = (piece_symbol, size)
+    cached = _PIECE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     piece_name = _PIECE_MAP[piece_symbol]
     png_path = _app_dir() / PIECES_DIR / f"{piece_name}.png"
+    img = None
     if png_path.exists():
         img = Image.open(png_path).convert("RGBA")
         if img.size != (size, size):
             img = img.resize((size, size), Image.Resampling.LANCZOS)
-        return img
-    return None
+    _PIECE_CACHE[cache_key] = img
+    return img
+
+
+def _coord_font(size: int):
+    """Шрифт координат с кэшем (truetype грузился с диска на каждый рендер)."""
+    cached = _FONT_CACHE.get(("coord", size))
+    if cached is None:
+        try:
+            cached = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size
+            )
+        except Exception:
+            cached = ImageFont.load_default()
+        _FONT_CACHE[("coord", size)] = cached
+    return cached
+
+
+def _piece_font(size: int):
+    """Шрифт для unicode-фигур (fallback) с кэшем."""
+    cached = _FONT_CACHE.get(("piece", size))
+    if cached is None:
+        try:
+            cached = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", size
+            )
+        except Exception:
+            cached = ImageFont.load_default()
+        _FONT_CACHE[("piece", size)] = cached
+    return cached
 
 
 def render_puzzle(
@@ -96,13 +134,7 @@ def render_puzzle(
 
     # Координаты
     if show_coordinates:
-        try:
-            coord_font = ImageFont.truetype(
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                int(square_size * 0.25),
-            )
-        except Exception:
-            coord_font = ImageFont.load_default()
+        coord_font = _coord_font(max(1, int(square_size * 0.25)))
 
         for i in range(8):
             file_char = chr(ord("a") + i)
@@ -125,13 +157,7 @@ def render_puzzle(
 
 def _draw_unicode_piece(draw: ImageDraw.ImageDraw, symbol: str, x: int, y: int, size: int) -> None:
     """Отрисовка фигуры юникодом (fallback)."""
-    try:
-        font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            int(size * 0.75),
-        )
-    except Exception:
-        font = ImageFont.load_default()
+    font = _piece_font(max(1, int(size * 0.75)))
 
     char = PIECE_UNICODE[symbol]
     bbox = draw.textbbox((0, 0), char, font=font)

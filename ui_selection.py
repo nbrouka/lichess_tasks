@@ -77,68 +77,59 @@ class PuzzleSelectionMixin:
         """
         self.selected_canvas.itemconfig(self._selected_window_id, width=event.width)
 
-    def _create_sheets_dialog(self) -> None:
+    def _add_to_theme_dialog(self) -> None:
         """
-        Открывает диалог экспорта выбранных задач в PDF.
+        Открывает диалог добавления выбранных задач в тему.
 
-        Пользователь вводит тему и выбирает путь для сохранения.
-        После экспорта тема автоматически сохраняется в пользовательские темы БД.
+        Пользователь может выбрать существующую тему или создать новую.
+        Задачи привязываются к теме в БД, файлы не создаются.
         """
-        logger.info("Open PDF export dialog, selected puzzles count=%d", len(self.selected_puzzles))
+        logger.info("Open add to theme dialog, selected puzzles count=%d", len(self.selected_puzzles))
         if not self.selected_puzzles:
             messagebox.showinfo(t("about_title"), t("msg_no_selected_puzzles"))
             return
 
+        user_themes = self.db.get_user_themes()
+
         dialog = tk.Toplevel(self.root)
-        dialog.title("Создать PDF")
+        dialog.title("Добавить в тему")
         dialog.geometry(DOCX_DIALOG_GEOMETRY)
         dialog.transient(self.root)
         dialog.grab_set()
 
-        ttk.Label(dialog, text="Тема:").pack(anchor=tk.W, padx=10, pady=(10, 0))
-        topic_entry = ttk.Entry(dialog)
-        topic_entry.pack(fill=tk.X, padx=10, pady=(0, 10))
-        topic_entry.focus_set()
+        ttk.Label(dialog, text="Существующая тема:").pack(anchor=tk.W, padx=10, pady=(10, 4))
+        theme_var = tk.StringVar(value="")
+        theme_cb = ttk.Combobox(
+            dialog, textvariable=theme_var,
+            values=[""] + user_themes, state="readonly", width=36,
+        )
+        theme_cb.pack(anchor=tk.W, padx=10, pady=(0, 10))
 
-        pdf_path_var = tk.StringVar()
+        ttk.Label(dialog, text="Или создать новую:").pack(anchor=tk.W, padx=10)
+        new_theme_var = tk.StringVar(value="")
+        new_theme_entry = ttk.Entry(dialog, textvariable=new_theme_var)
+        new_theme_entry.pack(fill=tk.X, padx=10, pady=(0, 10))
+        new_theme_entry.focus_set()
 
-        def choose_pdf_path():
-            topic = topic_entry.get().strip()
-            default_name = f"{topic}.pdf" if topic else "puzzles.pdf"
-            path = filedialog.asksaveasfilename(
-                defaultextension=".pdf",
-                filetypes=[("PDF files", "*.pdf")],
-                initialfile=default_name,
-                parent=dialog,
-            )
-            if path:
-                pdf_path_var.set(path)
-
-        ttk.Label(dialog, text="Сохранить PDF в:").pack(anchor=tk.W, padx=10)
-        pdf_path_frame = ttk.Frame(dialog)
-        pdf_path_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
-        pdf_path_entry = ttk.Entry(pdf_path_frame, textvariable=pdf_path_var, state="readonly")
-        pdf_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(pdf_path_frame, text="...", width=3, command=choose_pdf_path).pack(side=tk.LEFT, padx=(5, 0))
-
-        def save():
-            topic = topic_entry.get().strip()
-            pdf_path = pdf_path_var.get().strip()
-            if not pdf_path:
-                messagebox.showwarning("Внимание", "Выберите место для сохранения.", parent=dialog)
+        def on_add() -> None:
+            theme_name = new_theme_var.get().strip() or theme_var.get()
+            if not theme_name:
+                messagebox.showwarning("Внимание", "Укажите тему.", parent=dialog)
                 return
             try:
-                logger.info("Start PDF generation path=%s topic=%s puzzles=%d", pdf_path, topic, len(self.selected_puzzles))
-                self._create_sheets_pdf(pdf_path, topic)
-                logger.info("PDF generated successfully path=%s", pdf_path)
-                messagebox.showinfo("Готово", f"Файл сохранён: {pdf_path}", parent=dialog)
+                theme_id = self.db.get_or_create_user_theme(theme_name)
+                puzzle_ids = [p.puzzle_id for p in self.selected_puzzles]
+                self.db.link_puzzles_to_user_theme(theme_id, puzzle_ids)
+                self._refresh_user_themes()
+                self._refresh_exclude_user_themes()
+                self.status_label.config(text=f"Задачи добавлены в тему «{theme_name}»")
+                logger.info("Puzzles added to theme name=%s count=%d", theme_name, len(puzzle_ids))
                 dialog.destroy()
-                self._clear_selection()
             except Exception as exc:
-                logger.exception("Generation failed path=%s error=%s", pdf_path, exc)
-                messagebox.showerror("Ошибка", str(exc), parent=dialog)
+                logger.exception("Failed to add puzzles to theme name=%s", theme_name)
+                messagebox.showerror("Ошибка", f"Не удалось добавить задачи в тему: {exc}", parent=dialog)
 
-        ttk.Button(dialog, text="Сохранить", command=save).pack(pady=(0, 10))
+        ttk.Button(dialog, text="Добавить", command=on_add).pack(pady=(0, 10))
 
     def _remove_from_selected(self, puzzle: Puzzle, wrapper: tk.Frame) -> None:
         if puzzle in self.selected_puzzles:
@@ -172,6 +163,100 @@ class PuzzleSelectionMixin:
 
         if topic:
             self._save_topic_to_db(topic)
+
+    def _create_sheets_by_theme_dialog(self) -> None:
+        """
+        Открывает диалог создания листов по существующей теме (из меню).
+
+        Показывает темы с пометкой "(уже создан)" для тем, у которых уже есть связанные задачи.
+        Позволяет выбрать тему и создать PDF/DOCX листы.
+        """
+        logger.info("Open create sheets by theme dialog")
+        user_themes = self.db.get_user_themes()
+        if not user_themes:
+            messagebox.showinfo("Создать листы", "Нет пользовательских тем. Сначала добавьте задачи в тему.")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Создать листы")
+        dialog.geometry(DOCX_DIALOG_GEOMETRY)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        ttk.Label(dialog, text="Тема:").pack(anchor=tk.W, padx=10, pady=(10, 4))
+
+        # Формируем список с пометками для тем с уже созданными листами
+        theme_counts = {name: self.db.get_user_theme_puzzle_count(name) for name in user_themes}
+        theme_display_map = {}
+        display_values = []
+        for name in user_themes:
+            count = theme_counts.get(name, 0)
+            display = f"{name} (уже создан)" if count > 0 else name
+            theme_display_map[display] = name
+            display_values.append(display)
+
+        theme_var = tk.StringVar(value="")
+        theme_cb = ttk.Combobox(
+            dialog, textvariable=theme_var,
+            values=display_values, state="readonly", width=36,
+        )
+        theme_cb.pack(anchor=tk.W, padx=10, pady=(0, 10))
+        theme_cb.focus_set()
+
+        def on_create() -> None:
+            display_name = theme_var.get()
+            if not display_name:
+                messagebox.showwarning("Внимание", "Выберите тему.", parent=dialog)
+                return
+            theme_name = theme_display_map.get(display_name, display_name)
+            try:
+                # Получаем задачи, привязанные к этой теме
+                cursor = self.db.conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT p.* FROM puzzles p
+                    JOIN puzzle_user_themes put ON p.PuzzleId = put.puzzle_id
+                    JOIN user_themes ut ON put.theme_id = ut.id
+                    WHERE ut.name = ?
+                    """,
+                    (theme_name,),
+                )
+                rows = cursor.fetchall()
+                if not rows:
+                    messagebox.showinfo("Создать листы", f"В теме «{theme_name}» нет задач.", parent=dialog)
+                    return
+
+                puzzles = [self.db._row_to_puzzle(row) for row in rows]
+                logger.info("Creating sheets for theme=%s puzzles=%d", theme_name, len(puzzles))
+
+                # Выбор пути сохранения
+                path = filedialog.asksaveasfilename(
+                    defaultextension=".pdf",
+                    filetypes=[("PDF files", "*.pdf"), ("DOCX files", "*.docx")],
+                    initialfile=f"{theme_name}.pdf",
+                    parent=dialog,
+                )
+                if not path:
+                    return
+
+                if path.lower().endswith(".docx"):
+                    exporter = PuzzleDocxExporter(puzzles, theme_name)
+                    exporter.export(path)
+                    answers_path = path.replace(".docx", "_ответы.docx")
+                    self._create_answers_docx(answers_path, theme_name, puzzles)
+                else:
+                    exporter = PuzzlePdfExporter(puzzles, theme_name)
+                    exporter.export_with_answers(path)
+
+                self._refresh_user_themes()
+                self._refresh_exclude_user_themes()
+                messagebox.showinfo("Готово", f"Листы сохранены: {path}", parent=dialog)
+                dialog.destroy()
+            except Exception as exc:
+                logger.exception("Failed to create sheets for theme=%s", theme_name)
+                messagebox.showerror("Ошибка", f"Не удалось создать листы: {exc}", parent=dialog)
+
+        ttk.Button(dialog, text="Создать", command=on_create).pack(pady=(0, 10))
 
     def _create_answers_docx(self, path: str, topic: str, puzzles: list) -> None:
         """

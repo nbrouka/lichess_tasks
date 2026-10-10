@@ -2,16 +2,19 @@
 """Tests for all session.json scenarios with screenshots.
 
 Каждый сценарий:
-1. Записывает тестовый session.json в скриншот-папку (test_session files)
-2. Запускает приложение с этим session.json
+1. Записывает тестовый session-файл во временную директорию
+2. Запускает приложение с фикстурой БД и этим session-файлом
 3. Делает скриншот → screenshots/
 4. Проверяет, что скриншот валидный и не пустой
-5. Восстанавливает оригинальный session.json
+
+Реальная БД (puzzles.db) и реальный session.json НЕ используются —
+приложение работает с копией фикстуры tests/fixtures/puzzles_fixture.db.
 """
 
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -27,31 +30,31 @@ except ImportError:
 
 APP_DIR = Path(__file__).parent
 SCREENSHOT_DIR = APP_DIR / "screenshots"
-SESSION_FILE = APP_DIR / "session.json"
-DB_FILE = APP_DIR / "puzzles.db"
+FIXTURE_DIR = APP_DIR / "tests" / "fixtures"
+FIXTURE_CSV = FIXTURE_DIR / "puzzles_fixture.csv"
+FIXTURE_DB = FIXTURE_DIR / "puzzles_fixture.db"
 
 SCREENSHOT_DIR.mkdir(exist_ok=True)
 
 
-def backup_session():
-    if SESSION_FILE.exists():
-        return SESSION_FILE.read_text(encoding="utf-8")
-    return None
+def _ensure_fixture_db(target: Path) -> None:
+    """Копирует фикстуру БД или собирает её из CSV-фикстуры."""
+    if FIXTURE_DB.exists():
+        shutil.copy(FIXTURE_DB, target)
+        return
+    if not FIXTURE_CSV.exists():
+        raise RuntimeError(
+            f"Fixture not found: {FIXTURE_DB} / {FIXTURE_CSV}. "
+            "Run: python create_fixtures.py"
+        )
+    sys.path.insert(0, str(APP_DIR))
+    from database import PuzzleDatabase
+    db = PuzzleDatabase(db_path=str(target), csv_path=str(FIXTURE_CSV))
+    db.import_csv()
+    db.close()
 
 
-def restore_session(backup):
-    if backup is None:
-        if SESSION_FILE.exists():
-            SESSION_FILE.unlink()
-    else:
-        SESSION_FILE.write_text(backup, encoding="utf-8")
-
-
-def write_session(data: dict):
-    SESSION_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-
-
-def take_screenshot(name: str) -> dict:
+def take_screenshot(name: str, db_path: Path, session_path: Path) -> dict:
     """Запускает приложение и делает скриншот. Возвращает результат."""
     script = f"""
 import tkinter as tk
@@ -61,14 +64,13 @@ import os
 sys.path.insert(0, r"{APP_DIR}")
 
 from ui import PuzzleApp
-from constants import DB_FILENAME
 from PIL import ImageGrab
 
 root = tk.Tk()
 root.withdraw()
 root.update()
 
-app = PuzzleApp(root, db_path=DB_FILENAME)
+app = PuzzleApp(root, db_path=r"{db_path}", session_file=r"{session_path}")
 root.deiconify()
 root.update()
 
@@ -100,7 +102,7 @@ root.destroy()
 
 
 def save_test_session(name: str, data: dict) -> Path:
-    """Сохраняет тестовый session.json в скриншот-папку."""
+    """Сохраняет тестовый session-файл в скриншот-папку."""
     path = SCREENSHOT_DIR / f"session_{name}.json"
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -109,31 +111,41 @@ def save_test_session(name: str, data: dict) -> Path:
 class TestSessionScenarios(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._backup = backup_session()
-        # Убедимся, что БД существует для тестов
-        if not DB_FILE.exists():
-            raise RuntimeError(f"DB not found: {DB_FILE}")
+        cls._tmp_dir = tempfile.mkdtemp()
+        cls.db_file = Path(cls._tmp_dir) / "puzzles.db"
+        _ensure_fixture_db(cls.db_file)
+        cls.session_file = Path(cls._tmp_dir) / "session.json"
+        # Реальные ID задач и пользовательские темы из фикстуры.
+        conn = sqlite3.connect(f"file:{cls.db_file}?mode=ro", uri=True)
+        try:
+            cls.puzzle_ids = [
+                r[0] for r in conn.execute(
+                    "SELECT PuzzleId FROM puzzles ORDER BY Rating DESC"
+                )
+            ]
+            cls.user_themes = [
+                r[0] for r in conn.execute("SELECT name FROM user_themes ORDER BY id")
+            ]
+        finally:
+            conn.close()
 
     @classmethod
     def tearDownClass(cls):
-        restore_session(cls._backup)
+        shutil.rmtree(cls._tmp_dir, ignore_errors=True)
+
+    def _write_session(self, data: dict):
+        self.session_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     def _run_scenario(self, name: str, session_data: dict):
         """Запускает сценарий, проверяет скриншот и файл сессии."""
-        # Сохраняем тестовый session.json в скриншот-папку
+        # Сохраняем тестовый session-файл в скриншот-папку
         # name = "empty_session" → session_empty_session.json
         session_copy = dict(session_data)
-        # Убедимся, что last_puzzle_id корректен для БД
-        if session_copy.get("last_puzzle_id") and not session_copy["last_puzzle_id"].startswith("0000"):
-            pass  # пропустим некорректные
         save_test_session(name, session_copy)
 
-        # Записываем сессию в проект
-        write_session(session_copy)
-        try:
-            res = take_screenshot(name)
-        finally:
-            restore_session(self._backup)
+        # Записываем сессию во временный файл
+        self._write_session(session_copy)
+        res = take_screenshot(name, self.db_file, self.session_file)
 
         # Проверяем код возврата
         self.assertEqual(res["returncode"], 0,
@@ -184,7 +196,7 @@ class TestSessionScenarios(TestCase):
     def test_session_with_last_puzzle_id(self):
         data = {
             "filters": {},
-            "last_puzzle_id": "00008",  # Real puzzle ID from DB
+            "last_puzzle_id": self.puzzle_ids[0],  # Real puzzle ID from fixture
             "selected_ids": [],
             "filter_offset": 0,
             "filter_total": 0,
@@ -198,7 +210,7 @@ class TestSessionScenarios(TestCase):
         data = {
             "filters": {},
             "last_puzzle_id": None,
-            "selected_ids": ["00008", "0000D"],  # Real puzzle IDs from DB
+            "selected_ids": self.puzzle_ids[:2],  # Real puzzle IDs from fixture
             "filter_offset": 0,
             "filter_total": 0,
             "current_index": None,
@@ -209,11 +221,11 @@ class TestSessionScenarios(TestCase):
     # ─── Пагинация ───
     def test_session_with_pagination(self):
         data = {
-            "filters": {"themes": ["fork"]},  # Real theme from DB
+            "filters": {"themes": ["fork"]},  # Real theme from fixture
             "last_puzzle_id": None,
             "selected_ids": [],
             "filter_offset": 50,
-            "filter_total": 237,  # Real total from DB
+            "filter_total": 237,  # Realistic total
             "current_index": None,
         }
         res = self._run_scenario("with_pagination", data)
@@ -223,7 +235,7 @@ class TestSessionScenarios(TestCase):
     def test_session_with_current_index(self):
         data = {
             "filters": {},
-            "last_puzzle_id": "00008",  # Real puzzle ID from DB
+            "last_puzzle_id": self.puzzle_ids[0],  # Real puzzle ID from fixture
             "selected_ids": [],
             "filter_offset": 0,
             "filter_total": 100,
@@ -234,12 +246,13 @@ class TestSessionScenarios(TestCase):
 
     # ─── Все поля заполнены ───
     def test_session_full_data(self):
+        user_theme = self.user_themes[0] if self.user_themes else "test"
         data = {
-            "filters": {"color": "b", "themes": ["mate"], "user_themes": ["test 555"]},  # Real user theme from DB
-            "last_puzzle_id": "00008",  # Real puzzle ID
-            "selected_ids": ["00008", "0000D"],  # Real puzzle IDs
+            "filters": {"color": "b", "themes": ["mate"], "user_themes": [user_theme]},
+            "last_puzzle_id": self.puzzle_ids[0],  # Real puzzle ID
+            "selected_ids": self.puzzle_ids[:2],  # Real puzzle IDs
             "filter_offset": 50,  # Realistic offset
-            "filter_total": 1759497,  # Count for "advantage" theme (real count)
+            "filter_total": 1759497,  # Realistic total
             "current_index": 10,
         }
         res = self._run_scenario("full_data", data)
@@ -247,11 +260,9 @@ class TestSessionScenarios(TestCase):
 
     # ─── Отсутствие файла сессии ───
     def test_missing_session_file(self):
-        write_session({})
-        try:
-            res = take_screenshot("missing_file")
-        finally:
-            restore_session(self._backup)
+        if self.session_file.exists():
+            self.session_file.unlink()
+        res = take_screenshot("missing_file", self.db_file, self.session_file)
         self.assertEqual(res["returncode"], 0,
                          f"Missing session scenario failed: {res['stderr']}")
         img = SCREENSHOT_DIR / "missing_file.png"
@@ -262,11 +273,8 @@ class TestSessionScenarios(TestCase):
 
     # ─── Повреждённый JSON ───
     def test_corrupt_session_json(self):
-        SESSION_FILE.write_text("{invalid json", encoding="utf-8")
-        try:
-            res = take_screenshot("corrupt_file")
-        finally:
-            restore_session(self._backup)
+        self.session_file.write_text("{invalid json", encoding="utf-8")
+        res = take_screenshot("corrupt_file", self.db_file, self.session_file)
         self.assertEqual(res["returncode"], 0,
                          f"Corrupt session scenario failed: {res['stderr']}")
         img = SCREENSHOT_DIR / "corrupt_file.png"
@@ -278,7 +286,7 @@ class TestSessionScenarios(TestCase):
     # ─── Фильтр только по темам ───
     def test_session_theme_filter_only(self):
         data = {
-            "filters": {"themes": ["fork", "mate"]},  # Real themes from DB
+            "filters": {"themes": ["fork", "mate"]},  # Real themes from fixture
             "last_puzzle_id": None,
             "selected_ids": [],
             "filter_offset": 0,
@@ -293,8 +301,7 @@ class TestSessionScenarios(TestCase):
         data = {
             "filters": {},
             "last_puzzle_id": None,
-            "selected_ids": ["00008", "0000D", "0008Q", "0009B", "000Pw",
-                             "000Sa", "000VW", "000Vc", "000Zo", "000aY", "000h0", "000hf"],  # Real puzzle IDs from DB
+            "selected_ids": self.puzzle_ids[:12],  # Real puzzle IDs from fixture
             "filter_offset": 0,
             "filter_total": 0,
             "current_index": None,

@@ -19,6 +19,7 @@ venv/
 lichess_db_puzzle.csv
 puzzles.db
 *.db
+!tests/fixtures/puzzles_fixture.db
 .piece_cache/
 f0qUr.png
 *.db-shm

@@ -183,12 +183,38 @@ python log_archive.py
 python -m unittest tests -v
 ```
 
+Тесты НЕ используют реальную БД (`puzzles.db`) и реальный `session.json`.
+Они работают с фикстурой `tests/fixtures/puzzles_fixture.db`
+(копия во временной директории), содержащей реальные данные из `puzzles.db`.
+
+### Фикстуры
+
+Фикстуры генерируются из реальной БД:
+
+```bash
+python create_fixtures.py
+```
+
+Создаются:
+- `tests/fixtures/puzzles_fixture.csv` — CSV с репрезентативной выборкой задач
+- `tests/fixtures/puzzles_fixture.db` — SQLite БД с теми же задачами,
+  стандартными темами и пользовательскими темами
+
+Если DB-фикстура отсутствует (например, после свежего клона),
+тесты автоматически собирают её из CSV-фикстуры.
+
 ### Linux
 
 Без графической сессии используйте `xvfb-run`:
 
 ```bash
 xvfb-run -a python -m unittest tests -v
+```
+
+Сценарные тесты сессий (скриншоты):
+
+```bash
+xvfb-run -a python test_session_scenarios.py
 ```
 
 Если в системном Python отсутствует `PIL.ImageTk`, запускайте тесты из `venv`:

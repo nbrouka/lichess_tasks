@@ -27,11 +27,38 @@ from constants import (
     CATEGORY_TRANSLATIONS,
     CATEGORY_RU_TO_EN,
     COLOR_RU_TO_EN,
-    SESSION_FILE,
 )
 from parse_themes import parse_themes, clean
 from database import PuzzleDatabase, Puzzle
 from ui import PuzzleApp
+
+# Фикстуры с реальными данными из puzzles.db.
+# Тесты работают с копией фикстуры во временной директории,
+# реальная БД (puzzles.db) и реальный session.json не используются.
+FIXTURE_DIR = Path(__file__).parent / "tests" / "fixtures"
+FIXTURE_CSV = FIXTURE_DIR / "puzzles_fixture.csv"
+FIXTURE_DB = FIXTURE_DIR / "puzzles_fixture.db"
+
+
+def _copy_fixture_db(tmp_dir: str) -> str:
+    """Копирует фикстуру БД во временную директорию.
+
+    Если DB-фикстура отсутствует (например, после свежего клона),
+    собирает её из CSV-фикстуры.
+    """
+    db_path = os.path.join(tmp_dir, "puzzles.db")
+    if FIXTURE_DB.exists():
+        shutil.copy(FIXTURE_DB, db_path)
+        return db_path
+    if not FIXTURE_CSV.exists():
+        raise RuntimeError(
+            f"Fixture not found: {FIXTURE_DB} / {FIXTURE_CSV}. "
+            "Run: python create_fixtures.py"
+        )
+    db = PuzzleDatabase(db_path=db_path, csv_path=str(FIXTURE_CSV))
+    db.import_csv()
+    db.close()
+    return db_path
 
 
 THEME_HTML_SNIPPET = """
@@ -183,13 +210,17 @@ class TestFilterCombinations(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = PuzzleApp(self.root)
+        self._tmp_dir = tempfile.mkdtemp()
+        db_path = _copy_fixture_db(self._tmp_dir)
+        self.session_file = os.path.join(self._tmp_dir, "session.json")
+        self.app = PuzzleApp(self.root, db_path=db_path, session_file=self.session_file)
 
     def tearDown(self):
         try:
             self.app.destroy()
         except Exception:
             self.root.destroy()
+        shutil.rmtree(self._tmp_dir, ignore_errors=True)
 
     def test_get_filter_values_color_white(self):
         self.app.filter_widgets["color"].set("Ход белых")
@@ -292,6 +323,8 @@ class TestFilterCombinations(unittest.TestCase):
             def start(self):
                 if self._target:
                     self._target()
+            def is_alive(self):
+                return False
 
         with patch.object(self.app, "_show_puzzle", lambda index: None), \
              patch.object(self.app.root, "after", immediate_after), \
@@ -620,7 +653,8 @@ class TestDocxExport(unittest.TestCase):
         self.db.import_csv()
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path)
+        self.session_file = os.path.join(self.temp_dir, "session.json")
+        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path, session_file=self.session_file)
 
     def tearDown(self):
         try:
@@ -874,7 +908,8 @@ class TestPdfExport(unittest.TestCase):
         self.db.import_csv()
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path)
+        self.session_file = os.path.join(self.temp_dir, "session.json")
+        self.app = PuzzleApp(self.root, db_path=self.db_path, csv_path=self.csv_path, session_file=self.session_file)
 
     def tearDown(self):
         try:
@@ -1091,21 +1126,29 @@ if __name__ == "__main__":
 
 
 class TestSessionRestore(unittest.TestCase):
-    """Тесты восстановления состояния сессии (session.json)."""
+    """Тесты восстановления состояния сессии (session.json).
+
+    Использует копию фикстуры БД и временный session-файл,
+    реальная БД и реальный session.json не затрагиваются.
+    """
 
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = PuzzleApp(self.root)
+        self._tmp_dir = tempfile.mkdtemp()
+        db_path = _copy_fixture_db(self._tmp_dir)
+        self.session_file = os.path.join(self._tmp_dir, "session.json")
+        self.app = PuzzleApp(self.root, db_path=db_path, session_file=self.session_file)
 
     def tearDown(self):
         try:
             self.app.destroy()
         except Exception:
             self.root.destroy()
+        shutil.rmtree(self._tmp_dir, ignore_errors=True)
 
     def _save_session(self, data):
-        Path(SESSION_FILE).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        Path(self.session_file).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     def _load_session(self, data):
         self._save_session(data)
@@ -1125,14 +1168,14 @@ class TestSessionRestore(unittest.TestCase):
 
     def test_restore_missing_session_file(self):
         """Отсутствующий session.json: без краша, состояние «Готово»."""
-        if Path(SESSION_FILE).exists():
-            Path(SESSION_FILE).unlink()
+        if Path(self.session_file).exists():
+            Path(self.session_file).unlink()
         self.app._restore_session()
         self.assertEqual(self.app.status_label.cget("text"), t("status_ready"))
 
     def test_restore_corrupt_session_file(self):
         """Испорченный session.json: без краша, состояние «Готово»."""
-        Path(SESSION_FILE).write_text("{invalid json", encoding="utf-8")
+        Path(self.session_file).write_text("{invalid json", encoding="utf-8")
         self.app._restore_session()
         self.assertEqual(self.app.status_label.cget("text"), t("status_ready"))
 
@@ -1168,12 +1211,20 @@ class TestSessionRestore(unittest.TestCase):
             self.assertEqual(args["moves_exact"], 3)
             self.assertEqual(args["category"], "opening")
 
+    def _get_any_puzzle(self):
+        """Возвращает любую задачу из БД или None, если БД пуста."""
+        cursor = self.app.db.conn.cursor()
+        cursor.execute("SELECT PuzzleId FROM puzzles LIMIT 1")
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return self.app.db.get_puzzle_by_id(row[0])
+
     def test_restore_with_last_puzzle_id(self):
         """Сессия с last_puzzle_id: загружается и показывается эта задача."""
-        # Создаём задачу, существование которой гарантировано в тестовой БД.
-        puzzle = self.app.db.get_puzzle_by_id("00001")
+        puzzle = self._get_any_puzzle()
         if puzzle is None:
-            self.skipTest("test puzzle 00001 not found in database")
+            self.skipTest("no puzzles in database")
         self._save_session({
             "filters": {},
             "last_puzzle_id": puzzle.puzzle_id,
@@ -1190,9 +1241,9 @@ class TestSessionRestore(unittest.TestCase):
 
     def test_restore_with_last_puzzle_id_and_current_index(self):
         """Сессия с last_puzzle_id и current_index: сохраняется индекс детали."""
-        puzzle = self.app.db.get_puzzle_by_id("00001")
+        puzzle = self._get_any_puzzle()
         if puzzle is None:
-            self.skipTest("test puzzle 00001 not found in database")
+            self.skipTest("no puzzles in database")
         self._save_session({
             "filters": {},
             "last_puzzle_id": puzzle.puzzle_id,
@@ -1204,6 +1255,64 @@ class TestSessionRestore(unittest.TestCase):
         with patch.object(self.app, "_show_puzzle", lambda index: None):
             self.app._restore_session()
         self.assertEqual(self.app.current_index, 0)
+
+    def test_restore_position_beyond_first_page_keeps_alignment(self):
+        """Восстановление позиции за пределами первой страницы.
+
+        filtered_puzzles должен оставаться непрерывным префиксом
+        результата фильтрации: задача с сохранённым номером оказывается
+        на своём индексе, а не на позиции len(first_page).
+        """
+        class _P:
+            def __init__(self, pid):
+                self.puzzle_id = pid
+
+        dataset = [_P(f"p{i}") for i in range(100)]
+        saved_index = 70
+        self.app._filter_values = {"color": "b"}
+        self.app._filter_total = 100
+        self.app._pending_last_puzzle_id = f"p{saved_index}"
+        self.app._pending_current_index = saved_index
+        self.app._pending_selected_ids = []
+
+        def fake_get_by_offset(filters, offset):
+            return dataset[offset] if 0 <= offset < len(dataset) else None
+
+        def fake_filter(**kwargs):
+            offset = kwargs.get("offset", 0)
+            limit = kwargs.get("limit", 50)
+            return dataset[offset:offset + limit]
+
+        self.app.db.get_puzzle_by_offset = fake_get_by_offset
+        self.app.db.filter_puzzles = fake_filter
+
+        def immediate_after(ms, func, *args):
+            return func()
+
+        class FakeThread:
+            def __init__(self, target=None, daemon=None):
+                self._target = target
+            def start(self):
+                if self._target:
+                    self._target()
+            def is_alive(self):
+                return False
+
+        def fake_show_puzzle(index):
+            self.app.current_index = index
+
+        first_page = dataset[:50]
+        with patch.object(self.app, "_show_puzzle", fake_show_puzzle), \
+             patch.object(self.app, "_update_stats", lambda: None), \
+             patch.object(self.app.root, "after", immediate_after), \
+             patch.object(threading, "Thread", FakeThread):
+            self.app._on_filter_complete(first_page, 100)
+
+        self.assertEqual(len(self.app.filtered_puzzles), saved_index + 1)
+        self.assertEqual(self.app.filtered_puzzles[saved_index].puzzle_id, f"p{saved_index}")
+        self.assertEqual(self.app.filtered_puzzles[50].puzzle_id, "p50")
+        self.assertEqual(self.app._filter_offset, saved_index + 1)
+        self.assertEqual(self.app.current_index, saved_index)
 
     def test_restore_selected_ids(self):
         """Сессия с selected_ids: восстановление не вызывает ошибок."""

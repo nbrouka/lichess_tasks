@@ -7,26 +7,25 @@
     "nb_plays_min": null,
     "nb_plays_max": null,
     "moves_exact": 3,
-    "themes": [
-      "anastasiaMate"
+    "themes": null,
+    "color": "b",
+    "user_themes": [
+      "Test 123 123"
     ],
-    "color": "w",
-    "user_themes": null,
-    "exclude_user_themes": [
-      "44",
-      "999",
-      "Test Topic",
-      "test 555"
-    ]
+    "exclude_user_themes": null
   },
-  "last_puzzle_id": "hDUHz",
+  "last_puzzle_id": "Wb47f",
   "selected_ids": [
-    "hDUHz",
-    "orOg7",
-    "2uePX",
-    "4B9fi"
+    "4PvcF",
+    "AZSD6",
+    "Fj21O",
+    "JrHEn",
+    "Wb47f",
+    "mphV2",
+    "PjNJ3",
+    "YteAU"
   ],
-  "filter_offset": 51,
-  "filter_total": 799,
-  "current_index": 50
+  "filter_offset": 8,
+  "filter_total": 8,
+  "current_index": 0
 }

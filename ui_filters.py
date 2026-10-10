@@ -309,9 +309,22 @@ class PuzzleFiltersMixin:
                     if saved_index is not None and 0 <= saved_index < self._filter_total:
                         puzzle = self.db.get_puzzle_by_offset(self._filter_values, saved_index)
                         if puzzle and puzzle.puzzle_id == pending_last_puzzle_id:
-                            self.filtered_puzzles.append(puzzle)
-                            self._filter_offset = len(self.filtered_puzzles)
-                            self.root.after(0, lambda: self._on_pending_found(len(self.filtered_puzzles) - 1))
+                            loaded = len(self.filtered_puzzles)
+                            if saved_index >= loaded:
+                                # Догружаем диапазон [loaded, saved_index], чтобы
+                                # filtered_puzzles оставался непрерывным префиксом
+                                # результата фильтрации. Иначе задача с номером
+                                # saved_index + 1 оказывается на позиции loaded,
+                                # и нумерация задач сбивается.
+                                batch = self.db.filter_puzzles(
+                                    **self._filter_values,
+                                    limit=saved_index - loaded + 1,
+                                    offset=loaded,
+                                    return_total=False,
+                                )
+                                self.filtered_puzzles.extend(batch)
+                                self._filter_offset = len(self.filtered_puzzles)
+                            self.root.after(0, lambda: self._on_pending_found(saved_index))
                             return
                     self.root.after(0, lambda: self._on_pending_not_found(saved_index))
                 except Exception:

@@ -40,11 +40,12 @@ class PuzzleApp(
     PuzzleSelectionMixin,
     PuzzleImportMixin,
 ):
-    def __init__(self, root: tk.Tk, db_path: str = DB_FILENAME, csv_path: str = DEFAULT_CSV_PATH):
+    def __init__(self, root: tk.Tk, db_path: str = DB_FILENAME, csv_path: str = DEFAULT_CSV_PATH, session_file: str = SESSION_FILE):
         self.root = root
         self.root.title(t("app_title"))
         self.root.minsize(*WINDOW_MINSIZE)
         self._puzzle_details_text = ""
+        self._session_file = session_file
 
         self.db = PuzzleDatabase(db_path=db_path, csv_path=csv_path)
 
@@ -121,6 +122,8 @@ class PuzzleApp(
 
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label=t("menu_user_themes"), command=self._delete_user_themes_dialog)
+        edit_menu.add_separator()
+        edit_menu.add_command(label=t("menu_create_sheets"), command=self._create_sheets_by_theme_dialog)
         menubar.add_cascade(label=t("menu_edit"), menu=edit_menu)
 
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -310,7 +313,7 @@ class PuzzleApp(
         self.selected_canvas.bind("<Configure>", self._on_selected_canvas_resize)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.selected_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.create_sheets_btn = ttk.Button(right, text="Создать листы", command=self._create_sheets_dialog)
+        self.create_sheets_btn = ttk.Button(right, text="Добавить в тему", command=self._add_to_theme_dialog)
         self.create_sheets_btn.pack(fill=tk.X, pady=(5, 0))
 
     # ------------------------------------------------------------------
@@ -372,7 +375,7 @@ class PuzzleApp(
             data["last_puzzle_id"] = self.filtered_puzzles[self.current_index].puzzle_id
         data["selected_ids"] = [p.puzzle_id for p in getattr(self, "selected_puzzles", [])]
         try:
-            with open(SESSION_FILE, "w", encoding="utf-8") as f:
+            with open(self._session_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except OSError:
             pass
@@ -381,7 +384,7 @@ class PuzzleApp(
         if not self.db.is_imported():
             return
         try:
-            with open(SESSION_FILE, "r", encoding="utf-8") as f:
+            with open(self._session_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             self.status_label.config(text=t("status_ready"))
@@ -608,18 +611,19 @@ class PuzzleApp(
 
         def run():
             try:
-                needed = target_index + 1
                 offset = len(self.filtered_puzzles)
-                limit = needed - offset
+                if target_index >= offset:
+                    needed = target_index + 1
+                    limit = needed - offset
 
-                batch = self.db.filter_puzzles(
-                    **self._filter_values,
-                    limit=limit,
-                    offset=offset,
-                    return_total=False,
-                )
-                self.filtered_puzzles = list(self.filtered_puzzles) + list(batch)
-                self._filter_offset = len(self.filtered_puzzles)
+                    batch = self.db.filter_puzzles(
+                        **self._filter_values,
+                        limit=limit,
+                        offset=offset,
+                        return_total=False,
+                    )
+                    self.filtered_puzzles = list(self.filtered_puzzles) + list(batch)
+                    self._filter_offset = len(self.filtered_puzzles)
 
                 if target_index < len(self.filtered_puzzles):
                     self.root.after(0, lambda: self._on_goto_loaded(target_index))

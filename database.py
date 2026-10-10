@@ -103,7 +103,18 @@ class PuzzleDatabase:
         cursor.executescript(SQL_CREATE_THEMES)
         cursor.execute(SQL_CREATE_USER_THEMES)
         cursor.execute(SQL_CREATE_USER_PUZZLE_THEMES)
+        self._ensure_sheets_created_column()
         self.conn.commit()
+
+    def _ensure_sheets_created_column(self) -> None:
+        """Добавляет столбец sheets_created в БД, созданные до его появления."""
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA table_info(user_themes)")
+        if any(row[1] == "sheets_created" for row in cursor.fetchall()):
+            return
+        cursor.execute(
+            "ALTER TABLE user_themes ADD COLUMN sheets_created INTEGER NOT NULL DEFAULT 0"
+        )
 
     def create_indexes(self, progress_callback: Optional[Callable[[int], None]] = None) -> None:
         cursor = self.conn.cursor()
@@ -269,6 +280,23 @@ class PuzzleDatabase:
     def get_user_themes(self) -> List[str]:
         cursor = self.conn.cursor()
         cursor.execute("SELECT name FROM user_themes ORDER BY name")
+        return [r[0] for r in cursor.fetchall()]
+
+    def mark_theme_sheets_created(self, name: str) -> None:
+        """Отмечает, что по теме создавались листы (PDF/DOCX)."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "UPDATE user_themes SET sheets_created = 1 WHERE name = ?",
+            (name,),
+        )
+        self.conn.commit()
+
+    def get_themes_with_sheets_created(self) -> List[str]:
+        """Возвращает темы, по которым уже создавались листы."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT name FROM user_themes WHERE sheets_created = 1 ORDER BY name"
+        )
         return [r[0] for r in cursor.fetchall()]
 
     def get_user_theme_puzzle_count(self, name: str) -> int:

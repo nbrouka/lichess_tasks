@@ -61,6 +61,17 @@ def migrate(db_path: str) -> None:
         else:
             logger.info("moves_count already exists")
 
+        # sheets_created column
+        if not has_column(cursor, "user_themes", "sheets_created"):
+            logger.info("Add sheets_created column to user_themes")
+            cursor.execute(
+                "ALTER TABLE user_themes ADD COLUMN sheets_created INTEGER NOT NULL DEFAULT 0"
+            )
+            conn.commit()
+            logger.info("sheets_created added")
+        else:
+            logger.info("sheets_created already exists")
+
         # Indexes
         indexes = [
             ("idx_puzzle_user_themes_puzzle_theme", "CREATE INDEX IF NOT EXISTS idx_puzzle_user_themes_puzzle_theme ON puzzle_user_themes(puzzle_id, theme_id)"),

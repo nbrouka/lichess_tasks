@@ -125,6 +125,7 @@ class PuzzleSelectionMixin:
                 self.status_label.config(text=f"Задачи добавлены в тему «{theme_name}»")
                 logger.info("Puzzles added to theme name=%s count=%d", theme_name, len(puzzle_ids))
                 dialog.destroy()
+                self._clear_selection()
             except Exception as exc:
                 logger.exception("Failed to add puzzles to theme name=%s", theme_name)
                 messagebox.showerror("Ошибка", f"Не удалось добавить задачи в тему: {exc}", parent=dialog)
@@ -155,6 +156,7 @@ class PuzzleSelectionMixin:
 
         if topic:
             self._save_topic_to_db(topic)
+            self.db.mark_theme_sheets_created(topic)
 
     def _create_sheets_pdf(self, path: str, topic: str) -> None:
         puzzles = list(self.selected_puzzles)
@@ -163,12 +165,14 @@ class PuzzleSelectionMixin:
 
         if topic:
             self._save_topic_to_db(topic)
+            self.db.mark_theme_sheets_created(topic)
 
     def _create_sheets_by_theme_dialog(self) -> None:
         """
         Открывает диалог создания листов по существующей теме (из меню).
 
-        Показывает темы с пометкой "(уже создан)" для тем, у которых уже есть связанные задачи.
+        Показывает темы с пометкой "(уже созданы)" для тем, по которым уже
+        создавались листы (PDF/DOCX).
         Позволяет выбрать тему и создать PDF/DOCX листы.
         """
         logger.info("Open create sheets by theme dialog")
@@ -185,13 +189,12 @@ class PuzzleSelectionMixin:
 
         ttk.Label(dialog, text="Тема:").pack(anchor=tk.W, padx=10, pady=(10, 4))
 
-        # Формируем список с пометками для тем с уже созданными листами
-        theme_counts = {name: self.db.get_user_theme_puzzle_count(name) for name in user_themes}
+        # Пометка «уже созданы» — только для тем, по которым реально создавались листы.
+        themes_with_sheets = set(self.db.get_themes_with_sheets_created())
         theme_display_map = {}
         display_values = []
         for name in user_themes:
-            count = theme_counts.get(name, 0)
-            display = f"{name} (уже создан)" if count > 0 else name
+            display = f"{name} (уже созданы)" if name in themes_with_sheets else name
             theme_display_map[display] = name
             display_values.append(display)
 
@@ -248,6 +251,7 @@ class PuzzleSelectionMixin:
                     exporter = PuzzlePdfExporter(puzzles, theme_name)
                     exporter.export_with_answers(path)
 
+                self.db.mark_theme_sheets_created(theme_name)
                 self._refresh_user_themes()
                 self._refresh_exclude_user_themes()
                 messagebox.showinfo("Готово", f"Листы сохранены: {path}", parent=dialog)

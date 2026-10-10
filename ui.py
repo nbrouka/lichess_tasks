@@ -122,9 +122,9 @@ class PuzzleApp(
 
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label=t("menu_user_themes"), command=self._delete_user_themes_dialog)
-        edit_menu.add_separator()
-        edit_menu.add_command(label=t("menu_create_sheets"), command=self._create_sheets_by_theme_dialog)
         menubar.add_cascade(label=t("menu_edit"), menu=edit_menu)
+
+        menubar.add_command(label=t("menu_create_sheets"), command=self._create_sheets_by_theme_dialog)
 
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label=t("menu_about"), command=self._show_about)
